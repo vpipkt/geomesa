@@ -47,8 +47,6 @@ class QueryProcess {
   }
 }
 
-class CatalogQueryProcess(val catalog: Catalog)
-
 class QueryVisitor( features: SimpleFeatureCollection,
                            filter: Filter
                            ) extends FeatureCalc {
