@@ -2,6 +2,7 @@ package org.locationtech.geomesa.plugin.process
 
 import java.util
 
+import org.apache.commons.math3.stat.ranking.{NaturalRanking, TiesStrategy}
 import org.geoserver.catalog.Catalog
 import org.geotools.coverage.CoverageFactoryFinder
 import org.geotools.coverage.grid.GridCoverage2D
@@ -118,7 +119,7 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
     classifier.buildClassifier(instances)
 
     val gt = new GridSnap(bounds, width, height)
-    var max = 0.0f
+    var max = 0.0d
     val predictions =
       (0 until width).map { i =>
         val x = gt.x(i)
@@ -130,17 +131,19 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
           inst.setValue(0, 0.0)
           vec.zipWithIndex.foreach { case (v, idx) => inst.setValue(idx+1, v.toDouble) }
           inst.setDataset(instances)
-          val res = classifier.distributionForInstance(inst)(1).toFloat
+          val res = classifier.distributionForInstance(inst)(1)
           if(res > max) max = res
           res
         }.toArray
       }.toArray
 
-    // normalize
-    val normalized =
-      predictions.map { row => row.map { v => v / max } }
+    // rank
+    val ranker = new NaturalRanking(TiesStrategy.MAXIMUM)
+    val norm = (width * height).toFloat
+    val ranked = ranker.rank(predictions.flatten).map { _.toFloat/norm }
+    val regridded = ranked.grouped(predictions.head.size).toArray
 
     val gcf = CoverageFactoryFinder.getGridCoverageFactory(GeoTools.getDefaultHints)
-    gcf.create("Process Results", GridUtils.flipXY(normalized), densityBounds)
+    gcf.create("Process Results", GridUtils.flipXY(regridded), densityBounds)
   }
 }
