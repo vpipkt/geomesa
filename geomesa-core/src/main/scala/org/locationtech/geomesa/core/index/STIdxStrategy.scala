@@ -19,27 +19,28 @@ package org.locationtech.geomesa.core.index
 import java.util.Map.Entry
 
 import com.typesafe.scalalogging.slf4j.Logging
-import com.vividsolutions.jts.geom.{Polygon, GeometryCollection, Geometry}
+import com.vividsolutions.jts.geom.{Geometry, GeometryCollection, Polygon}
 import org.apache.accumulo.core.client.IteratorSetting
-import org.apache.accumulo.core.data.{Value, Key}
+import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.accumulo.core.iterators.user.RegExFilter
 import org.apache.hadoop.io.Text
 import org.geotools.data.Query
+import org.geotools.feature.AttributeTypeBuilder
+import org.geotools.feature.simple.SimpleFeatureTypeBuilder
 import org.geotools.filter.text.ecql.ECQL
 import org.joda.time.Interval
-import org.locationtech.geomesa.core.data.{SimpleFeatureEncoder, AccumuloConnectorCreator}
-import org.locationtech.geomesa.core.DEFAULT_SCHEMA_NAME
-import org.locationtech.geomesa.core.GEOMESA_ITERATORS_IS_DENSITY_TYPE
-import org.locationtech.geomesa.core.iterators._
+import org.locationtech.geomesa.core.data.{AccumuloConnectorCreator, SimpleFeatureEncoder}
 import org.locationtech.geomesa.core.filter._
 import org.locationtech.geomesa.core.index.FilterHelper._
-import org.locationtech.geomesa.core.index.QueryPlanner._
 import org.locationtech.geomesa.core.index.QueryHints._
+import org.locationtech.geomesa.core.index.QueryPlanner._
+import org.locationtech.geomesa.core.iterators._
 import org.locationtech.geomesa.core.util.{SelfClosingBatchScanner, SelfClosingIterator}
+import org.locationtech.geomesa.core.{DEFAULT_SCHEMA_NAME, GEOMESA_ITERATORS_IS_DENSITY_TYPE}
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter.Filter
 import org.opengis.filter.expression.Literal
-import org.opengis.filter.spatial.{BinarySpatialOperator, BBOX}
+import org.opengis.filter.spatial.{BBOX, BinarySpatialOperator}
 
 class STIdxStrategy extends Strategy with Logging {
 
@@ -71,11 +72,9 @@ class STIdxStrategy extends Strategy with Logging {
     // https://geomesa.atlassian.net/browse/GEOMESA-200
     // Simiarly, we should only extract temporal filters for the index date field.
     val (geomFilters, otherFilters) = partitionGeom(query.getFilter)
-    val (temporalFilters, ecqlFilters: Seq[Filter]) = partitionTemporal(otherFilters, getDtgFieldName(featureType))
+    val (temporalFilters, ecqlFilters) = partitionTemporal(otherFilters, getDtgFieldName(featureType))
 
-    val tweakedEcqlFilters = ecqlFilters.map(updateTopologicalFilters(_, featureType))
-
-    val ecql = filterListAsAnd(tweakedEcqlFilters).map(ECQL.toCQL)
+    val ecql = filterListAsAnd(ecqlFilters).map(ECQL.toCQL)
 
     output(s"The geom filters are $geomFilters.\nThe temporal filters are $temporalFilters.")
 
@@ -105,7 +104,7 @@ class STIdxStrategy extends Strategy with Logging {
 
     output(s"GeomsToCover $geomsToCover.")
 
-    val ofilter = filterListAsAnd(geomFilters ++ temporalFilters)
+    val ofilter = filterListAsAnd(tweakedGeoms ++ temporalFilters)
     if (ofilter.isEmpty) logger.warn(s"Querying Accumulo without ST filter.")
 
     val oint  = IndexSchema.somewhen(interval)
@@ -140,8 +139,7 @@ class STIdxStrategy extends Strategy with Logging {
                      featureEncoder: SimpleFeatureEncoder): IteratorSetting = {
     iteratorConfig.iterator match {
       case IndexOnlyIterator =>
-        val transformedSFType = transformedSimpleFeatureType(query).getOrElse(featureType)
-        configureIndexIterator(ofilter, query, schema, featureEncoder, transformedSFType)
+        configureIndexIterator(ofilter, query, schema, featureEncoder, featureType)
       case SpatioTemporalIterator =>
         val isDensity = query.getHints.containsKey(DENSITY_KEY)
         configureSpatioTemporalIntersectingIterator(ofilter, featureType, schema, isDensity)
@@ -206,7 +204,17 @@ class STIdxStrategy extends Strategy with Logging {
     val cfg = new IteratorSetting(iteratorPriority_SpatioTemporalIterator,
       "within-" + randomPrintableString(5),classOf[IndexIterator])
     IndexIterator.setOptions(cfg, schema, filter)
-    configureFeatureType(cfg, featureType)
+    val ab = new AttributeTypeBuilder()
+    val builder = new SimpleFeatureTypeBuilder()
+    builder.setName(featureType.getName)
+    builder.add(featureType.getGeometryDescriptor)
+    builder.setDefaultGeometry(featureType.getGeometryDescriptor.getLocalName)
+    // dtg attribute is optional -- if it exists add it to the builder
+    getDtgDescriptor(featureType).foreach ( builder.add(_) )
+    val testType = builder.buildFeatureType()
+     // dtg attribute is optional -- if it exists add the pointer to UserData
+    getDtgFieldName(featureType).foreach ( testType.getUserData.put(SF_PROPERTY_START_TIME,_) )
+    configureFeatureType(cfg, testType)
     configureFeatureEncoding(cfg, featureEncoder)
     cfg
   }
