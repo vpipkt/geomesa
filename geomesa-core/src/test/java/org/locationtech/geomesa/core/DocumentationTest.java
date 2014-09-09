@@ -27,6 +27,7 @@ import org.geotools.filter.text.cql2.CQLException;
 import org.geotools.filter.text.ecql.ECQL;
 import org.locationtech.geomesa.core.index.Constants;
 import org.locationtech.geomesa.utils.geotools.ShapefileIngest;
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes$;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 import org.opengis.filter.Filter;
@@ -94,7 +95,7 @@ public class DocumentationTest {
     String featureSchema =
       "NAME:String,SKU:Long,COST:Double,SELL_BY:Date," +
       Constants.TYPE_SPEC;  // built-in geomesa attributes
-    SimpleFeatureType featureType = DataUtilities.createType(featureName, featureSchema);
+    SimpleFeatureType featureType = SimpleFeatureTypes$.MODULE$.createType(featureName, featureSchema);
     featureType.getUserData().put(Constants.SF_PROPERTY_START_TIME, "dtg");
     dataStore.createSchema(featureType);
 

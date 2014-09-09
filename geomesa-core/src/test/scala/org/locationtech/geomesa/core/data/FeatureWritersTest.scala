@@ -29,6 +29,7 @@ import org.geotools.filter.text.cql2.CQL
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.index.{IndexSchemaBuilder, SF_PROPERTY_START_TIME}
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.text.WKTUtils
 import org.opengis.feature.simple.SimpleFeature
 import org.specs2.mutable.Specification
@@ -44,7 +45,7 @@ class FeatureWritersTest extends Specification {
 
   val geotimeAttributes = org.locationtech.geomesa.core.index.spec
   val sftName = "mutableType"
-  val sft = DataUtilities.createType(sftName, s"name:String,age:Integer,$geotimeAttributes")
+  val sft = SimpleFeatureTypes.createType(sftName, s"name:String,age:Integer,$geotimeAttributes")
   sft.getUserData.put(SF_PROPERTY_START_TIME, "dtg")
   val sdf = new SimpleDateFormat("yyyyMMdd")
   sdf.setTimeZone(TimeZone.getTimeZone("Zulu"))

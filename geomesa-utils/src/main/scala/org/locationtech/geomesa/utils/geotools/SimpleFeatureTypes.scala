@@ -78,7 +78,7 @@ object SimpleFeatureTypes {
   case class GeomAttributeSpec(name: String, clazz: Class[_], index: Boolean, srid: Int, default: Boolean) extends AttributeSpec {
     override def toAttribute: AttributeDescriptor = {
       val b = new AttributeTypeBuilder()
-      val crs = Try(CRS.decode(s"EPSG:$srid")).getOrElse(DefaultGeographicCRS.WGS84)
+      val crs = DefaultGeographicCRS.WGS84 // Try(CRS.decode(s"EPSG:$srid")).getOrElse(DefaultGeographicCRS.WGS84)
       b.binding(clazz).userData("index", index).crs(crs).buildDescriptor(name)
     }
 

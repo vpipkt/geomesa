@@ -53,11 +53,11 @@
       <artifactId>geomesa-tools-accumulo1.5</artifactId>
     </dependency>
 
-    <dependency>
+    <!--<dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-epsg-hsql</artifactId>
       <scope>compile</scope>
-    </dependency>
+    </dependency>-->
 
     <dependency>
       <groupId>org.apache.accumulo</groupId>

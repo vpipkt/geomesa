@@ -18,8 +18,8 @@
 
 package org.locationtech.geomesa.core.integration.data
 
-import org.geotools.data.DataUtilities
 import org.locationtech.geomesa.core.index.Constants
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.io.Source
@@ -51,7 +51,7 @@ class DataType(typeString: String) {
   val table: String = typeString
 
   val simpleFeatureType: SimpleFeatureType = {
-    val featureType = DataUtilities.createType(sftName, attributes)
+    val featureType = SimpleFeatureTypes.createType(sftName, attributes)
     featureType.getUserData.put(Constants.SF_PROPERTY_START_TIME, dateAttribute)
     featureType
   }

@@ -724,7 +724,7 @@ class AccumuloDataStoreTest extends Specification {
         "000000013400000015000000000140468000000000004046800000000000000001349ccf6e18",
         "000000013500000015000000000140468000000000004046800000000000000001349ccf6e18").map {v =>
         hex.decode(v.getBytes)}
-      val sft = DataUtilities.createType(sftName, s"name:String,$geotimeAttributes")
+      val sft = SimpleFeatureTypes.createType(sftName, s"name:String,$geotimeAttributes")
       sft.getUserData.put(SF_PROPERTY_START_TIME, "dtg")
 
       val instance = new MockInstance(params("instanceId"))
@@ -757,7 +757,7 @@ class AccumuloDataStoreTest extends Specification {
     }
 
     def getFeatureStore(table: String, sftName: String, ds: AccumuloDataStore): AccumuloFeatureStore = {
-      val sft = DataUtilities.createType(sftName, s"name:String,dtg:Date,*geom:Point:srid=4326")
+      val sft = SimpleFeatureTypes.createType(sftName, s"name:String,dtg:Date,*geom:Point:srid=4326")
       ds.createSchema(sft)
       val fs = ds.getFeatureSource(sftName).asInstanceOf[AccumuloFeatureStore]
       val geom = WKTUtils.read("POINT(45.0 49.0)")
