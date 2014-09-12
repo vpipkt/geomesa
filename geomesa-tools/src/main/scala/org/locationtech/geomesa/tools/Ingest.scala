@@ -18,18 +18,14 @@ package org.locationtech.geomesa.tools
 
 import java.io.File
 import java.net.URLEncoder
-
 import com.twitter.scalding.{Args, Hdfs, Local, Mode}
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.Connector
 import org.apache.hadoop.conf.Configuration
 import org.geotools.data.DataStoreFinder
 import org.locationtech.geomesa.core.data.AccumuloDataStore
-import org.locationtech.geomesa.core.index.Constants
 import org.locationtech.geomesa.jobs.JobUtils
 import org.locationtech.geomesa.tools.Utils.IngestParams
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
-
 import scala.collection.JavaConversions._
 import scala.io.Source
 import scala.util.{Failure, Success, Try}
@@ -47,7 +43,8 @@ class Ingest() extends Logging with AccumuloProperties {
 
     Try(DataStoreFinder.getDataStore(dsConfig).asInstanceOf[AccumuloDataStore]) match {
       case Success(ds)  =>
-        FeatureCreator.createFeature(ds, config.featureName, config.dtField, config.sharedTable, config.catalog, config.maxShards)
+        FeatureCreator.createFeature(ds, config.spec, config.featureName, config.dtField,
+          config.sharedTable, config.catalog, config.maxShards)
       case Failure(ex) =>
         logger.error("Error, could not find data store with provided arguments." +
           " Please check that all arguments are correct in the previous command")
@@ -161,6 +158,8 @@ class Ingest() extends Logging with AccumuloProperties {
 object Ingest extends App with Logging with GetPassword {
   val parser = new scopt.OptionParser[IngestArguments]("geomesa-tools ingest") {
     implicit val optionStringRead: scopt.Read[Option[String]] = scopt.Read.reads(Option[String])
+    implicit val optionBooleanRead: scopt.Read[Option[Boolean]] = scopt.Read.reads(b => Option(b.toBoolean))
+    implicit val optionIntRead: scopt.Read[Option[Int]] = scopt.Read.reads(i => Option(i.toInt))
     head("GeoMesa Tools Ingest", "1.0")
     opt[String]('u', "username") action { (x, c) =>
       c.copy(username = x) } text "Accumulo username" required()
@@ -178,8 +177,10 @@ object Ingest extends App with Logging with GetPassword {
       c.copy(visibilities = s) } text "Accumulo visibilities (optional)" optional()
     opt[Option[String]]('i', "indexSchemaFormat") action { (s, c) =>
       c.copy(indexSchemaFmt = s) } text "Accumulo index schema format (optional)" optional()
-    opt[Int]("shards") action { (i, c) =>
-      c.copy(maxShards = Option(i)) } text "Accumulo number of shards to use (optional)" optional()
+    opt[Option[Int]]("shards") action { (i, c) =>
+      c.copy(maxShards = i) } text "Accumulo number of shards to use (optional)" optional()
+    opt[Option[Boolean]]("shared-tables") action { (x, c) =>
+      c.copy(sharedTable = x) } text "Set the Accumulo table sharing (default true)" optional()
     opt[String]('f', "feature-name").action { (s, c) =>
       c.copy(featureName = s) } text "the name of the feature" required()
     opt[String]('s', "sftspec").action { (s, c) =>

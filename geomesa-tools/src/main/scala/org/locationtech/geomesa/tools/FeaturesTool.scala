@@ -21,8 +21,6 @@ import org.geotools.data._
 import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.core.data.{AccumuloDataStore, AccumuloFeatureReader}
 import org.locationtech.geomesa.core.index.SF_PROPERTY_START_TIME
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
-
 import scala.collection.JavaConversions._
 import scala.util.Try
 
@@ -93,7 +91,7 @@ class FeaturesTool(config: FeatureArguments, password: String) extends Logging w
 
   def createFeature() {
     FeatureCreator.createFeature(
-      ds, config.featureName, config.dtField, config.sharedTable, config.catalog, config.maxShards
+      ds, config.spec, config.featureName, config.dtField, config.sharedTable, config.catalog, config.maxShards
     )
     sys.exit()
   }

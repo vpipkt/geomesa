@@ -7,27 +7,26 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 
 object FeatureCreator extends Logging {
 
-  def createFeature(ds: AccumuloDataStore, featureName: String, dtField: Option[String], sharedTable: Option[Boolean], catalog: String, maxShards: Option[Int] = None): Unit = {
+  def createFeature(ds: AccumuloDataStore, sftspec: String, featureName: String, dtField: Option[String], sharedTable: Option[Boolean], catalog: String, maxShards: Option[Int] = None): Unit = {
     logger.info(s"Creating '$featureName' on catalog table '$catalog' with spec " +
-      s"'$spec'. Just a few moments...")
+      s"'$sftspec'. Just a few moments...")
 
     if (ds.getSchema(featureName) == null) {
 
       logger.info("\tCreating GeoMesa tables...")
 
-      val sft = SimpleFeatureTypes.createType(featureName, spec)
+      val sft = SimpleFeatureTypes.createType(featureName, sftspec)
       if (dtField.orNull != null) {
-        sft.getUserData.put(SF_PROPERTY_START_TIME, dtField.get)
+        // Todo: fix logic here, it is a bit strange
+        sft.getUserData.put(SF_PROPERTY_START_TIME, dtField.getOrElse(Constants.SF_PROPERTY_START_TIME))
       }
 
       sharedTable.foreach { org.locationtech.geomesa.core.index.setTableSharing(sft, _) }
-
 
       if (maxShards.isDefined)
         ds.createSchema(sft, maxShards.get)
       else
         ds.createSchema(sft)
-      //.createSchema(sft)
 
 
       if (ds.getSchema(featureName) != null) {
