@@ -30,7 +30,6 @@ import org.geotools.util.Version
 import org.locationtech.geomesa.filter.function.{Convert2ViewerFunction, EncodedValues}
 import org.locationtech.geomesa.plugin.wfs.output.BinaryViewerOutputFormat._
 import org.locationtech.geomesa.utils.geotools.Conversions.toRichSimpleFeatureIterator
-import org.opengis.feature.simple.SimpleFeature
 
 import scala.collection.JavaConverters._
 
@@ -50,7 +49,7 @@ import scala.collection.JavaConverters._
  *
  * @param gs
  */
-class BinaryViewerOutputFormat(gs: GeoServer) extends WFSGetFeatureOutputFormat(gs, MIME_TYPE) {
+class BinaryViewerOutputFormat(gs: GeoServer) extends WFSGetFeatureOutputFormat(gs, Set("bin", MIME_TYPE).asJava) {
 
   val wfsVersion1 = new Version("1.0.0")
 
@@ -62,7 +61,7 @@ class BinaryViewerOutputFormat(gs: GeoServer) extends WFSGetFeatureOutputFormat(
     val gfr = GetFeatureRequest.adapt(operation.getParameters()(0))
     val name = Option(gfr.getHandle).getOrElse(gfr.getQueries.get(0).getTypeNames.get(0).getLocalPart)
     // if they have requested a label, then it will be 24 byte encoding (assuming the field exists...)
-    val size = if (Option(gfr.getFormatOptions.get(LABEL_FIELD)).isDefined) "24" else "16"
+    val size = if (gfr.getFormatOptions.containsKey(LABEL_FIELD)) "24" else "16"
     s"${name}.${FILE_EXTENSION}$size"
   }
 
