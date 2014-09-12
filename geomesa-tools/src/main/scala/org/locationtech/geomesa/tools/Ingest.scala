@@ -32,7 +32,7 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 
 import scala.collection.JavaConversions._
 import scala.io.Source
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 class Ingest() extends Logging with AccumuloProperties {
 
@@ -43,48 +43,19 @@ class Ingest() extends Logging with AccumuloProperties {
       sys.exit()
     }
 
-    val featureName = config.featureName.get
-    val maxShard = config.maxShards
-    val sftSpec = config.spec
-
     val dsConfig = getAccumuloDataStoreConf(config, password)
 
-    val sft = {
-      val ret = SimpleFeatureTypes.createType(featureName, sftSpec)
-      ret.getUserData.put(Constants.SF_PROPERTY_START_TIME, config.dtField.getOrElse(Constants.SF_PROPERTY_START_TIME))
-      ret
-    }
-
-    val ds = Option(DataStoreFinder.getDataStore(dsConfig).asInstanceOf[AccumuloDataStore])
-    ds match {
-      case None =>
+    Try(DataStoreFinder.getDataStore(dsConfig).asInstanceOf[AccumuloDataStore]) match {
+      case Success(ds)  =>
+        FeatureCreator.createFeature(ds, config.featureName, config.dtField, config.sharedTable, config.catalog, config.maxShards)
+      case Failure(ex) =>
         logger.error("Error, could not find data store with provided arguments." +
           " Please check that all arguments are correct in the previous command")
+        logger.error(ex.getMessage)
         sys.exit()
-      case Some(ads) =>
-        if (ads.getSchema(featureName) == null) {
-          logger.info("\tCreating GeoMesa tables...")
-          val startTime = System.currentTimeMillis()
-          if (maxShard.isDefined)
-            ads.createSchema(sft, maxShard.get)
-          else
-            ads.createSchema(sft)
-          val createTime = System.currentTimeMillis() - startTime
-          val numShards = ads.getSpatioTemporalMaxShard(sft)
-          val shardPvsS = if (numShards == 1) "Shard" else "Shards"
-          logger.info(s"\tCreated schema in: $createTime ms using $numShards $shardPvsS.")
-        } else {
-          val numShards = ads.getSpatioTemporalMaxShard(sft)
-          val shardPvsS = if (numShards == 1) "Shard" else "Shards"
-          maxShard match {
-            case None =>
-              logger.info(s"GeoMesa tables extant, using $numShards $shardPvsS. Using extant SFT. " +
-                s"\nIf this is not desired please delete (aka: drop) the catalog using the delete command.")
-            case Some(x) =>
-              logger.warn(s"GeoMesa tables extant, ignoring user request, using schema's $numShards $shardPvsS")
-          }
-        }
     }
+
+
   }
 
   def getAccumuloDataStoreConf(config: IngestArguments, password: String) = Map (
@@ -157,13 +128,14 @@ class Ingest() extends Logging with AccumuloProperties {
     args.append("--" + IngestParams.ACCUMULO_PASSWORD, password)
     args.append("--" + IngestParams.DO_HASH, config.doHash.toString)
     args.append("--" + IngestParams.FORMAT, Ingest.getFileExtension(config.file))
+    args.append("--" + IngestParams.FEATURE_NAME, config.featureName)
+
     // optional parameters
     if ( config.dtFormat.isDefined )        args.append("--" + IngestParams.DT_FORMAT, config.dtFormat.get)
     if ( config.idFields.isDefined )        args.append("--" + IngestParams.ID_FIELDS, config.idFields.get)
     if ( config.dtField.isDefined )         args.append("--" + IngestParams.DT_FIELD, config.dtField.get)
     if ( config.lonAttribute.isDefined )    args.append("--" + IngestParams.LON_ATTRIBUTE, config.lonAttribute.get)
     if ( config.latAttribute.isDefined )    args.append("--" + IngestParams.LAT_ATTRIBUTE, config.latAttribute.get)
-    if ( config.featureName.isDefined )     args.append("--" + IngestParams.FEATURE_NAME, config.featureName.get)
     if ( config.auths.isDefined )           args.append("--" + IngestParams.AUTHORIZATIONS, config.auths.get)
     if ( config.visibilities.isDefined )    args.append("--" + IngestParams.VISIBILITIES, config.visibilities.get)
     if ( config.indexSchemaFmt.isDefined )  args.append("--" + IngestParams.INDEX_SCHEMA_FMT, config.indexSchemaFmt.get)
@@ -208,7 +180,7 @@ object Ingest extends App with Logging with GetPassword {
       c.copy(indexSchemaFmt = s) } text "Accumulo index schema format (optional)" optional()
     opt[Int]("shards") action { (i, c) =>
       c.copy(maxShards = Option(i)) } text "Accumulo number of shards to use (optional)" optional()
-    opt[Option[String]]('f', "feature-name").action { (s, c) =>
+    opt[String]('f', "feature-name").action { (s, c) =>
       c.copy(featureName = s) } text "the name of the feature" required()
     opt[String]('s', "sftspec").action { (s, c) =>
       c.copy(spec = s) } text "the sft specification of the file," +
