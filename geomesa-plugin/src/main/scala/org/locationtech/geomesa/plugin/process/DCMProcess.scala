@@ -7,9 +7,8 @@ import org.geoserver.catalog.Catalog
 import org.geotools.coverage.CoverageFactoryFinder
 import org.geotools.coverage.grid.GridCoverage2D
 import org.geotools.data.DataUtilities
-import org.geotools.data.simple.{SimpleFeatureCollection, SimpleFeatureSource}
+import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.factory.{CommonFactoryFinder, GeoTools}
-import org.geotools.feature.NameImpl
 import org.geotools.geometry.DirectPosition2D
 import org.geotools.geometry.jts.{JTS, ReferencedEnvelope}
 import org.geotools.process.factory.{DescribeParameter, DescribeProcess, DescribeResult}
@@ -36,10 +35,17 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
   def execute(
                @DescribeParameter(
                  name = "predictiveFeatures",
-                 collectionType = classOf[String],
+                 collectionType = classOf[SimpleFeatureCollection],
                  description = "Predictive Features"
                )
-               featureNames: util.Collection[String],
+               featureCollections: util.Collection[SimpleFeatureCollection],
+
+               @DescribeParameter(
+                 name = "predictiveCoverages",
+                 collectionType = classOf[GridCoverage2D],
+                 description = "Processed Predictive Features"
+               )
+               inputCoverages: util.Collection[GridCoverage2D],
 
                @DescribeParameter(
                  name = "events",
@@ -72,18 +78,11 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
     val bufferedBounds = JTS.toGeometry(bounds).buffer(math.max(dx,dy)/100.0).getEnvelopeInternal
     val densityBounds = JTS.toGeographic(bufferedBounds, DefaultGeographicCRS.WGS84).asInstanceOf[ReferencedEnvelope]
     val fdProcess = new FeatureDistanceProcess()
-    val coverages = featureNames.flatMap { feature =>
-      val Array(ns, fn) = feature.split(":")
-      val fInfo = catalog.getFeatureTypeByName(ns, fn)
-      val ds = fInfo.getStore.getDataStore(null)
-      val fs = ds.getFeatureSource(new NameImpl(fn)).asInstanceOf[SimpleFeatureSource]
-      val geomProp = fs.getSchema.getGeometryDescriptor.getLocalName
-      val q = ff.bbox(ff.property(geomProp), densityBounds)
-      val features = fs.getFeatures(q)
+    val processedCoverages = featureCollections.flatMap { features =>
       if(features.size() == 0) None
-      else Some((feature, fdProcess.execute(features, densityBounds, width, height)))
+      else Some((features.getSchema.getTypeName, fdProcess.execute(features, densityBounds, width, height)))
     }
-
+    val coverages = inputCoverages.map { gc => (gc.getName.toString(), gc) } ++ processedCoverages
     val numAttrs = 1 + coverages.size
     val attributes = coverages.map { case (fn, _) => new Attribute(fn) }
     val fv = new FastVector(numAttrs)
