@@ -48,7 +48,6 @@ class Export(config: ExportArguments, password: String) extends Logging with Acc
   }
 
   def exportFeatures() {
-    val sftCollection = getFeatureCollection
     var outputPath: File = null
     do {
       if (outputPath != null) { Thread.sleep(1) }
@@ -56,6 +55,7 @@ class Export(config: ExportArguments, password: String) extends Logging with Acc
     } while (outputPath.exists)
     config.format.toLowerCase match {
       case "csv" | "tsv" =>
+        val sftCollection = getFeatureCollection()
         val loadAttributes = new LoadAttributes(config.featureName,
           config.catalog,
           config.attributes.orNull,
@@ -77,15 +77,29 @@ class Export(config: ExportArguments, password: String) extends Logging with Acc
           "auths"        -> config.auths.orNull))
         de.writeFeatures(sftCollection.features())
       case "shp" =>
+        // When exporting to Shapefile, we must rename the Geometry Attribute Descriptor to "the_geom", per
+        // the requirements of Geotools' ShapefileDataStore and ShapefileFeatureWriter. The easiest way to do this
+        // is transform the attribute when retrieving the SimpleFeatureCollection.
+        val attrDescriptors = config.attributes.getOrElse(
+          ds.getSchema(config.featureName).getAttributeDescriptors.map(_.getLocalName).mkString(","))
+        val geomDescriptor = ds.getSchema(config.featureName).getGeometryDescriptor.getLocalName
+        val renamedGeomAttrs = if (attrDescriptors.contains(geomDescriptor)) {
+          attrDescriptors.replace(geomDescriptor, s"the_geom=$geomDescriptor")
+        } else {
+          attrDescriptors.concat(s",the_geom=$geomDescriptor")
+        }
+        val shpCollection = getFeatureCollection(Some(renamedGeomAttrs))
         val shapeFileExporter = new ShapefileExport
-        shapeFileExporter.write(outputPath, config.featureName, sftCollection, ds.getSchema(config.featureName))
+        shapeFileExporter.write(outputPath, config.featureName, shpCollection, shpCollection.getSchema)
         logger.info(s"Successfully wrote features to '${outputPath.toString}'")
       case "geojson" =>
+        val sftCollection = getFeatureCollection()
         val os = if (config.toStdOut) { System.out } else { new FileOutputStream(outputPath) }
         val geojsonExporter = new GeoJsonExport
         geojsonExporter.write(sftCollection, os)
         if (!config.toStdOut) { logger.info(s"Successfully wrote features to '${outputPath.toString}'") }
       case "gml" =>
+        val sftCollection = getFeatureCollection()
         val os = if (config.toStdOut) { System.out } else { new FileOutputStream(outputPath) }
         val gmlExporter = new GmlExport
         gmlExporter.write(sftCollection, os)
@@ -96,12 +110,13 @@ class Export(config: ExportArguments, password: String) extends Logging with Acc
     Thread.sleep(1000)
   }
 
-  def getFeatureCollection: SimpleFeatureCollection = {
+  def getFeatureCollection(overrideAttributes: Option[String] = None): SimpleFeatureCollection = {
     val filter = CQL.toFilter(config.query.getOrElse("include"))
     val q = new Query(config.featureName, filter)
 
     q.setMaxFeatures(config.maxFeatures.getOrElse(Query.DEFAULT_MAX))
-    if (config.attributes.isDefined) { q.setPropertyNames(config.attributes.get.split(',')) }
+    if (overrideAttributes.isDefined) { q.setPropertyNames(overrideAttributes.get.split(',')) }
+    else if (config.attributes.isDefined) { q.setPropertyNames(config.attributes.get.split(',')) }
 
     // get the feature store used to query the GeoMesa data
     val fs = ds.getFeatureSource(config.featureName).asInstanceOf[AccumuloFeatureStore]
@@ -124,9 +139,9 @@ object Export extends App with Logging with GetPassword {
     def featureOpt = opt[String]('f', "feature-name").action { (s, c) =>
       c.copy(featureName = s) } required() text "the name of the feature to export"
     def userOpt = opt[String]('u', "username") action { (x, c) =>
-      c.copy(username = x) } text "username for Accumulo" required()
+      c.copy(username = x) } text "the Accumulo username" required()
     def passOpt = opt[Option[String]]('p', "password") action { (x, c) =>
-      c.copy(password = x) } text "password for Accumulo. This can also be provided after entering a command." optional()
+      c.copy(password = x) } text "the Accumulo password. This can also be provided after entering a command." optional()
     def instanceNameOpt = opt[Option[String]]('i', "instance-name") action { (x, c) =>
       c.copy(instanceName = x) } text "Accumulo instance name" optional()
     def zookeepersOpt = opt[Option[String]]('z', "zookeepers") action { (x, c) =>
@@ -134,7 +149,7 @@ object Export extends App with Logging with GetPassword {
     def visibilitiesOpt = opt[Option[String]]('v', "visibilities") action { (x, c) =>
       c.copy(visibilities = x) } text "Accumulo visibilities string" optional()
     def authsOpt = opt[Option[String]]('a', "auths") action { (x, c) =>
-      c.copy(auths = x) } text "Accumulo auths string" optional()
+      c.copy(auths = x) } text "Accumulo authorizations string" optional()
 
     head("GeoMesa Tools", "1.0")
     help("help").text("show help command")
@@ -143,13 +158,13 @@ object Export extends App with Logging with GetPassword {
     catalogOpt
     featureOpt
     opt[Unit]('s', "stdOut").action { (_, c) =>
-      c.copy(toStdOut = true) } optional() text "add this flag to export to stdOut"
+      c.copy(toStdOut = true) } optional() text "Add this flag to export to stdout"
     opt[String]('o', "format").action { (s, c) =>
-      c.copy(format = s) } required() text "the format to export to (csv, tsv, gml, geojson, shp)"
+      c.copy(format = s) } required() text "The format to export to (CSV, TSV, GML, GeoJSON, SHP)"
     opt[Option[String]]('a', "attributes").action { (s, c) =>
-      c.copy(attributes = s) } optional() text "attributes to return in the export. default: ALL"
+      c.copy(attributes = s) } optional() text "Names of the attributes to return in the export. default: ALL"
     opt[String]("idAttribute").action { (s, c) =>
-      c.copy(latAttribute = Option(s)) } optional() hidden()
+      c.copy(idFields = Option(s)) } optional() hidden()
     opt[String]("latAttribute").action { (s, c) =>
       c.copy(latAttribute = Option(s)) } optional() hidden()
     opt[String]("lonAttribute").action { (s, c) =>
@@ -157,7 +172,7 @@ object Export extends App with Logging with GetPassword {
     opt[String]("dateAttribute").action { (s, c) =>
       c.copy(dtField = Option(s)) } optional() hidden()
     opt[Option[Int]]('m', "maxFeatures").action { (s, c) =>
-      c.copy(maxFeatures = s) } optional() text "max number of features to return. default: 2147483647"
+      c.copy(maxFeatures = s) } optional() text "Maximum number of features to return. default: 2147483647"
     opt[Option[String]]('q', "query").action { (s, c) =>
       c.copy(query = s )} optional() text "ECQL query to run on the features. default: INCLUDE"
     instanceNameOpt
