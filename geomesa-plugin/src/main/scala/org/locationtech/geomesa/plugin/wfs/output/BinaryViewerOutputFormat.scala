@@ -30,6 +30,7 @@ import org.geotools.util.Version
 import org.locationtech.geomesa.filter.function.{Convert2ViewerFunction, EncodedValues}
 import org.locationtech.geomesa.plugin.wfs.output.BinaryViewerOutputFormat._
 import org.locationtech.geomesa.utils.geotools.Conversions.toRichSimpleFeatureIterator
+import org.opengis.feature.simple.SimpleFeature
 
 import scala.collection.JavaConverters._
 
