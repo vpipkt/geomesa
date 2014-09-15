@@ -62,12 +62,16 @@
         <constructor-arg index="0" ref="catalog"/>
     </bean>
 
-    <!-- Link category for grouping GeoMesa pages -->
-    <bean id="geoMesaCategory" class="org.geoserver.web.Category">
-        <property name="nameKey" value="GeoMesaCategory.title"/>
-        <!-- Optional, a key used to order the links in the menu. -->
-        <property name="order" value="110"/>
-    </bean>
+  <bean id="binaryViewerOutputFormat" class="org.locationtech.geomesa.plugin.wfs.output.BinaryViewerOutputFormat">
+    <constructor-arg ref="geoServer"/>
+  </bean>
+
+ <!-- Link category for grouping GeoMesa pages -->
+  <bean id="geoMesaCategory" class="org.geoserver.web.Category">
+    <property name="nameKey" value="GeoMesaCategory.title"/>
+    <!-- Optional, a key used to order the links in the menu. -->
+    <property name="order" value="110"/>
+  </bean>
 
   <!-- link for the geomesa status page -->
   <bean id="GeoMesaDataStoresPageLink" class="org.geoserver.web.MenuPageInfo">
