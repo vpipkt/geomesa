@@ -32,6 +32,7 @@ import org.opengis.feature.simple.SimpleFeature
 import org.opengis.referencing.operation.MathTransform
 
 import scala.collection.JavaConversions._
+import scala.util.{Success, Failure, Try}
 
 object ShpIngest extends Logging {
   
@@ -66,8 +67,11 @@ object ShpIngest extends Logging {
       val writer = ds.getFeatureWriterAppend(targetTypeName, Transaction.AUTO_COMMIT)
       feature.getFeatures.features().foreach { f =>
         val toWrite = writer.next()
-        copyFeature(f, toWrite, transform)
-        writer.write()
+        val copy = Try(copyFeature(f, toWrite, transform))
+        copy match {
+          case Success(_) => writer.write()
+          case Failure(e) => logger.warn(s"Unable to copy feature '${f.getID}': ${e.toString}")
+        }
       }
       writer.close()
       true
