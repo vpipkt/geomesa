@@ -31,6 +31,8 @@ import scala.util.Random
 )
 class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
 
+  // lookup WGS84 rather than using DefaultGeographicCRS.WGS84 because
+  // the Import process requires that the CRS have non-empty Identifiers
   private val WGS84 = CRS.decode("EPSG:4326")
 
   @DescribeResult(
@@ -68,7 +70,15 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
                  name = "height",
                  description = "height"
                )
-               height: Int
+               height: Int,
+
+               @DescribeParameter(
+                 name = "sampleRatio",
+                 description = "Number of grid points to sample per true positive response",
+                 defaultValue = "100"
+               )
+               sampleRatio: Int
+
                ): GridCoverage2D = {
 
     import org.locationtech.geomesa.utils.geotools.Conversions._
@@ -91,7 +101,7 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
 
     val responseInstances = processResponses(responseFeatures, numAttrs, coverages)
     responseInstances.foreach { i => instances.add(i) }
-    val nullGrid = processGridSample(lx, ly, dx, dy, coverages, numAttrs)
+    val nullGrid = processGridSample(sampleRatio*responseFeatures.length, lx, ly, dx, dy, coverages, numAttrs)
     nullGrid.foreach { i => instances.add(i) }
 
     val classifier = new Logistic
@@ -159,10 +169,11 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
     classifier.distributionForInstance(inst)(1)
   }
 
-  def processGridSample(lx: Double, ly: Double, dx: Double, dy: Double,
+  def processGridSample(count: Int,
+                        lx: Double, ly: Double, dx: Double, dy: Double,
                         coverages: Map[String, GridCoverage2D],
                         numAttrs: Int): Seq[Instance] =
-    List.fill(1000)((lx + Random.nextDouble() * dx, ly + Random.nextDouble() * dy)).map { case (x, y) =>
+    List.fill(count)((lx + Random.nextDouble() * dx, ly + Random.nextDouble() * dy)).map { case (x, y) =>
       val pos = new DirectPosition2D(x, y)
       val vec = coverages.map { case (_, c) => c.evaluate(pos).asInstanceOf[Array[Float]].head}
       val inst = new Instance(numAttrs)
