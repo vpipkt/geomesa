@@ -13,7 +13,7 @@ import org.geotools.factory.GeoTools
 import org.geotools.geometry.DirectPosition2D
 import org.geotools.geometry.jts.{JTS, ReferencedEnvelope}
 import org.geotools.process.factory.{DescribeParameter, DescribeProcess, DescribeResult}
-import org.geotools.referencing.crs.DefaultGeographicCRS
+import org.geotools.referencing.CRS
 import org.locationtech.geomesa.plugin.wps.GeomesaProcess
 import org.locationtech.geomesa.utils.geotools.GridSnap
 import org.opengis.feature.simple.SimpleFeature
@@ -30,6 +30,8 @@ import scala.util.Random
   description = "Prediction"
 )
 class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
+
+  private val WGS84 = CRS.decode("EPSG:4326")
 
   @DescribeResult(
     name = "prediction",
@@ -78,8 +80,8 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
     val Array(ux,uy) = bounds.getUpperCorner.getCoordinate
     val dx = ux - lx
     val dy = uy - ly
-    val bufferedBounds = JTS.toGeometry(bounds).buffer(math.max(dx,dy)/100.0).getEnvelopeInternal
-    val densityBounds = JTS.toGeographic(bufferedBounds, DefaultGeographicCRS.WGS84).asInstanceOf[ReferencedEnvelope]
+    val bufferedBounds = JTS.toGeometry(bounds).buffer(math.max(dx,dy)/100.0)
+    val densityBounds = new ReferencedEnvelope(bufferedBounds.getEnvelopeInternal, WGS84)
 
     val processedCoverages = processFeatureCollections(featureCollections, width, height, densityBounds)
     val coverages = (inputCoverages.map { gc => (gc.getName.toString(Locale.getDefault), gc) } ++ processedCoverages).toMap
@@ -107,10 +109,13 @@ class DCMProcess(val catalog: Catalog) extends GeomesaProcess {
                                 width: Int,
                                 height: Int,
                                 densityBounds: ReferencedEnvelope): Iterable[(String, GridCoverage2D)] = {
-    val fdProcess = new FeatureDistanceProcess()
-    featureCollections.flatMap { features =>
-      if (features.size() == 0) None
-      else Some((features.getSchema.getTypeName, fdProcess.execute(features, densityBounds, width, height)))
+    if(featureCollections == null || featureCollections.size() == 0) Seq()
+    else {
+      val fdProcess = new FeatureDistanceProcess()
+      featureCollections.flatMap { features =>
+        if (features.size() == 0) None
+        else Some((features.getSchema.getTypeName, fdProcess.execute(features, densityBounds, width, height)))
+      }
     }
   }
 
