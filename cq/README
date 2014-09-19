@@ -1,0 +1,11 @@
+Scrips useful for CQ process.
+
+** All scripts should be copied and run from base geomesa folder. **
+
+Scripts:
+
+* all-deps.sh - creates list of all jars that are part of the release artifacts. Requires 'shaded-deps' and 'assemble-deps' to be run first.
+* assemble-deps.sh - creates list of jars that are part of our geomesa-assemble binary distro
+* provided-deps.sh - creates list of jars that are 'provided' scope. Requires 'all-deps' to be run first.
+* shaded-deps.sh - creates list of jars that are bundled into our shaded jars
+* test-deps.sh - creates list of jars that are 'test' scope. Requires 'all-deps' and 'provided-deps' to be run first.
