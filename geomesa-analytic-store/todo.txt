@@ -1,0 +1,7 @@
+1. deal with missing data/date ranges
+2. quoted csv input
+3. bolt that takes lat/lon and converts to site via config
+4. send timeseries to geomesa when alert happens?
+5. possible updates to time series?
+6. multiple date input formats
+
