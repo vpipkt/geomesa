@@ -6,7 +6,8 @@ import org.joda.time.DateTime
 
 class TimeSeries(interval: TimeInterval = DayInterval,
                  window: Int = 5,
-                 sigmaSensivity: Double = 2.8)
+                 sigmaSensivity: Double = 2.8,
+                 storeData: (TimeSeriesData) => Unit)
   extends Logging with Serializable {
 
   private val timeUnits = collection.mutable.ListBuffer.empty[DateTime]
@@ -37,6 +38,8 @@ class TimeSeries(interval: TimeInterval = DayInterval,
     val isAlert = addObs(numObs)
     (isAlert, lastData)
   }
+
+
 
   def startUnit(time: DateTime) = {
     timeUnits += time
@@ -90,7 +93,7 @@ class TimeSeries(interval: TimeInterval = DayInterval,
   def getData: Seq[(DateTime, Int)] = timeUnits.zip(mostRecentUnitStats.getValues.map(_.toInt))
 }
 
-case class TimeSeriesData(dt: DateTime, count: Int, alert: Boolean)
+case class TimeSeriesData(dt: DateTime, count: Int, alert: Boolean, alertId: Option[String])
 
 // TODO functional programming on TimeInterval implementation with* function chaining
 sealed trait TimeInterval {

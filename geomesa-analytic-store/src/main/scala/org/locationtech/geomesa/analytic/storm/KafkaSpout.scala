@@ -11,13 +11,15 @@ import backtype.storm.tuple.{Fields, Values}
 import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector, KafkaStream}
 import kafka.message.MessageAndMetadata
 import kafka.serializer.DefaultDecoder
-import org.joda.time.format.{DateTimeFormatter, ISODateTimeFormat}
+import org.joda.time.DateTime
+import org.joda.time.format.{DateTimeFormat, DateTimeFormatter, ISODateTimeFormat}
 
 class KafkaSpout() extends IRichSpout {
   private var collector: SpoutOutputCollector = null
   private var consumerConnector: ConsumerConnector = null
   private var dtParser: DateTimeFormatter = null
   private var topic: String = null
+  private var inputQuoted: Boolean = false
 
   private var stream: KafkaStream[_, Array[Byte]] = null
 
@@ -37,8 +39,10 @@ class KafkaSpout() extends IRichSpout {
 
         try {
           val str = new String(msg.message)
-          //println(s"Parsing $str")
-          val arr = str.split(",")
+          val arr = str.split(",").map { s =>
+            if (inputQuoted) s.drop(1).dropRight(1)
+            else s
+          }
 
           val date = dtParser.parseDateTime(arr(0))
           val site = arr(1)
@@ -68,8 +72,11 @@ class KafkaSpout() extends IRichSpout {
   override def open(conf: util.Map[_, _], context: TopologyContext, collector: SpoutOutputCollector): Unit = {
     this.collector = collector
     consumerConnector = Consumer.create(ConsumerPropertiesBuilder.build())
-    this.dtParser = ISODateTimeFormat.dateTime()
+    val dateFormat = conf.get("input.date.format").asInstanceOf[String]
+    this.dtParser = DateTimeFormat.forPattern(dateFormat)
     this.topic = conf.get("topic.in").asInstanceOf[String]
+    this.inputQuoted = conf.get("input.quoted").asInstanceOf[String].toBoolean
+
 
     val consumerMap = consumerConnector.createMessageStreams(Map(topic -> 1), new DefaultDecoder(), new DefaultDecoder())
     consumerMap.get(topic).map { lst =>
