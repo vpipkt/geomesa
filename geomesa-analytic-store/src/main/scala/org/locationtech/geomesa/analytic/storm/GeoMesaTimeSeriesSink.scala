@@ -20,7 +20,7 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import scala.collection.JavaConverters._
 
 /**
- * Write time series to GeoMesa...input is triples "date", "site", "count"
+ * Write time series to GeoMesa...input is "date", "site", "count", "alert", "alertId"
  */
 class GeoMesaTimeSeriesSink extends GeoMesaSink {
 
@@ -29,10 +29,11 @@ class GeoMesaTimeSeriesSink extends GeoMesaSink {
     val site = input.getString(1)
     val count = input.getInteger(2)
     val isAlert = input.getBoolean(3)
+    val alertId = input.getString(4)
     val geom = WKTUtils.read("POINT(45 45)")
 
     // site:String:index=true,count:Int:index=true,isAlert:Boolean:index=true,dtg:Date,*geom:Point
-    AvroSimpleFeatureFactory.buildAvroFeature(getSft, List(site, count, isAlert, time, geom), UUID.randomUUID().toString)
+    AvroSimpleFeatureFactory.buildAvroFeature(getSft, List(site, count, isAlert, alertId, time, geom), UUID.randomUUID().toString)
   }
 
   override def parseSft(stormConf: java.util.Map[_, _]): SimpleFeatureType = {

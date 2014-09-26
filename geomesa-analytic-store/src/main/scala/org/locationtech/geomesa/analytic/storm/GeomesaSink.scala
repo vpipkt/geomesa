@@ -51,7 +51,8 @@ abstract class GeoMesaSink extends BaseRichBolt {
       userParam.getName       -> getStr(User),
       passwordParam.getName   -> getStr(Password),
       zookeepersParam.getName -> getStr(Zookeepers),
-      instanceIdParam.getName -> getStr(Instance)
+      instanceIdParam.getName -> getStr(Instance),
+      mockParam.getName       -> getStr(Mock)
     ).asJava
     val ds = DataStoreFinder.getDataStore(dsParams)
     ds.createSchema(sft)
@@ -77,5 +78,6 @@ object GeoMesaSinkParams {
   val Password   = s"$PRE.password"
   val Instance   = s"$PRE.instance"
   val Zookeepers = s"$PRE.zookeepers"
+  val Mock       = s"$PRE.mock"
 }
 

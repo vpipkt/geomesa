@@ -1,6 +1,6 @@
 package org.locationtech.geomesa.analytic.storm
 
-import java.util.{Date, UUID}
+import java.util.Date
 
 import backtype.storm.tuple.Tuple
 import org.locationtech.geomesa.analytic.storm.GeoMesaAlertSinkParams._
@@ -15,11 +15,11 @@ import org.opengis.feature.simple.SimpleFeatureType
 class GeoMesaAlertSink extends GeoMesaSink {
 
   override def buildFeature(input: Tuple) = {
-    val alert = input.getValue(0).asInstanceOf[UUID].toString
+    val alertId = input.getString(0)
     val site = input.getString(1)
     val time = input.getValue(2).asInstanceOf[Date]
     val geom = WKTUtils.read("POINT(45 45)")
-    AvroSimpleFeatureFactory.buildAvroFeature(getSft, List(alert, site, time, geom), alert)
+    AvroSimpleFeatureFactory.buildAvroFeature(getSft, List(alertId, site, time, geom), alertId)
   }
 
   override def parseSft(stormConf: java.util.Map[_, _]): SimpleFeatureType = {

@@ -10,7 +10,7 @@ import org.locationtech.geomesa.analytic.storm.GeoMesaSinkParams._
 object StormExecutor {
 
   val AlertSftDef = "alertId:String:index=true,site:String:index=true,dtg:Date,*geom:Geometry:srid=4326"
-  val TimeSeriesSftDef = "site:String:index=true,count:Int:index=true,isAlert:Boolean:index=true,dtg:Date,*geom:Geometry:srid=4326"
+  val TimeSeriesSftDef = "site:String:index=true,count:Int:index=true,isAlert:Boolean:index=true,alertId:String:index=true,dtg:Date,*geom:Geometry:srid=4326"
 
   def runLocalCluster(aconf: ActivityConfig) = {
 
@@ -64,7 +64,8 @@ object StormExecutor {
       User -> aconf.user,
       Password -> aconf.password,
       Instance -> aconf.instance,
-      Zookeepers -> aconf.zookeepers
+      Zookeepers -> aconf.zookeepers,
+      Mock       -> aconf.mockGeomesa.toString
     ).foreach { case (k, v) => conf.put(k, v)}
 
     conf
@@ -105,6 +106,8 @@ object StormExecutor {
         c.copy(catalog = x) } text("geomesa catalog table")
       opt[String]("broker") required() action { (x, c) =>
         c.copy(broker = x) } text("kafka brokers")
+      opt[Boolean]("mock-geomesa") action { (x, c) =>
+        c.copy(mockGeomesa = x) } text("true/false use mock geomesa (default false)")
     }
     // parser.parse returns Option[C]
     parser.parse(args, ActivityConfig()) map { config =>
@@ -129,5 +132,6 @@ object StormExecutor {
                              password: String = null,
                              instance: String = null,
                              catalog: String = null,
-                             broker: String = null)
+                             broker: String = null,
+                             mockGeomesa: Boolean = false)
 }

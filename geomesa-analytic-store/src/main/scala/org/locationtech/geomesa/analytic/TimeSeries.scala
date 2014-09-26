@@ -1,5 +1,7 @@
 package org.locationtech.geomesa.analytic
 
+import java.util.UUID
+
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics
 import org.joda.time.DateTime
@@ -7,7 +9,7 @@ import org.joda.time.DateTime
 class TimeSeries(interval: TimeInterval = DayInterval,
                  window: Int = 5,
                  sigmaSensivity: Double = 2.8,
-                 storeData: (TimeSeriesData) => Unit)
+                 saveFunc: (TimeSeriesData) => Unit)
   extends Logging with Serializable {
 
   private val timeUnits = collection.mutable.ListBuffer.empty[DateTime]
@@ -16,6 +18,7 @@ class TimeSeries(interval: TimeInterval = DayInterval,
 
   private var curUnit: DateTime = null
   private var curUnitAlerted = false
+  private var lastAlertId: String = null
   private val obs = collection.mutable.ListBuffer.empty[UnitCount]
 
   class UnitCount(val unit: DateTime) {
@@ -24,22 +27,26 @@ class TimeSeries(interval: TimeInterval = DayInterval,
     def increment(by: Int = 1) = count += by
   }
 
-  def addObs(unit: DateTime, numObs: Int): (Boolean, Option[TimeSeriesData]) = {
-    val lastData: Option[TimeSeriesData] =
-      if (curUnit == null) {
-        startUnit(unit)
+  def addObs(unit: DateTime, numObs: Int): (Boolean, Option[String]) = {
+    if (curUnit == null) {
+      startUnit(unit)
+    } else if (!interval.sameInterval(unit, curUnit)) {
+      endUnit()
+      startUnit(unit)
+    }
+
+    val isAlert = doAddObs(numObs)
+    val alertIdOpt =
+      if (isAlert) {
+        lastAlertId = UUID.randomUUID().toString
+        Some(lastAlertId)
+      }
+      else {
         None
-      } else if (!interval.sameInterval(unit, curUnit)) {
-        val ret = endUnit()
-        startUnit(unit)
-        Some(ret)
-      } else None
+      }
 
-    val isAlert = addObs(numObs)
-    (isAlert, lastData)
+    (isAlert, alertIdOpt)
   }
-
-
 
   def startUnit(time: DateTime) = {
     timeUnits += time
@@ -47,10 +54,8 @@ class TimeSeries(interval: TimeInterval = DayInterval,
     obs += new UnitCount(curUnit)
   }
 
-  def addObs(numObs: Int = 1): Boolean = {
-    // If not in a current unit...bad user
-    if (curUnit == null)
-      throw new IllegalStateException("Must call startUnit() before adding obs to current unit")
+  private def doAddObs(numObs: Int = 1): Boolean = {
+    if (curUnit == null) throw new IllegalStateException("startUnit() before adding obs")
 
     // startDay() should have added something to obs...take the most recent
     obs.last.increment(numObs)
@@ -69,15 +74,17 @@ class TimeSeries(interval: TimeInterval = DayInterval,
     }
   }
 
-  def endUnit(): TimeSeriesData = {
+  def endUnit() = {
     logger.trace("\tClosing "+curUnit+" with count " + obs.last.getCount())
-    val ret = TimeSeriesData(curUnit, obs.lastOption.get.getCount(), curUnitAlerted)
+    saveFunc(TimeSeriesData(curUnit, obs.last.getCount(), curUnitAlerted, Option(lastAlertId)))
+
+    // Reset current unit state
     curUnit = null
     curUnitAlerted = false
+    lastAlertId = null
 
-    obs.lastOption.map { dc => fullStats.addValue(dc.getCount()) }
+    obs.lastOption.foreach { dc => fullStats.addValue(dc.getCount()) }
     mostRecentUnitStats = fullStats.copy()
-    ret
   }
 
   def getMean = mostRecentUnitStats.getMean
@@ -94,6 +101,9 @@ class TimeSeries(interval: TimeInterval = DayInterval,
 }
 
 case class TimeSeriesData(dt: DateTime, count: Int, alert: Boolean, alertId: Option[String])
+
+// TODO use?
+case class UnitState(curUnit: DateTime = null, curUnitAlerted: Boolean = false, lastAlertId: String = null)
 
 // TODO functional programming on TimeInterval implementation with* function chaining
 sealed trait TimeInterval {

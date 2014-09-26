@@ -4,30 +4,32 @@
 
 echo "Starting Activity Indicator..."
 
-JAR="geomesa-analytic-store-1.0.0-SNAPSHOT.jar"
+JAR="target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar"
 
 # args
-IN_TOPIC="ts_in"
+IN_TOPIC="ts_input"
 QUOTE="false"
-ALERT_TOPIC="alerts"
-TIMESERIES_TOPIC="timeseries"
-WINDOW="20"
+ALERT_TOPIC="ts_alerts"
+TIMESERIES_TOPIC="ts_aggregated"
+WINDOW="4"
 INPUT_DATE_FMT="yyyy-MM-dd'T'HH:mm:ss.SSSZ"
 MODE="local"
 TOPOLOGY_NAME="activityIndicator"
 ALERT_SFT_NAME="alerts"
 TIMESERIES_SFT_NAME="timeseries"
 ZOO="localhost:2181"
-ACC_USER="root"
-ACC_PASS="secret"
+ACC_USER="myuser"
+ACC_PASS="mypassword"
 ACC_INST="dcloud"
 GEOMESA_CATALOG_TABLE="actind_catalog"
 BROKER="localhost:9092"
+MOCK="true"
+
+# cluster (replace line below)
+#storm jar target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geomesa.analytic.storm.StormExecutor \
 
 # local
 java -cp target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geomesa.analytic.storm.StormExecutor \
-# cluster
-#storm jar target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geomesa.analytic.storm.StormExecutor \
 -i $IN_TOPIC \
 -q $QUOTE \
 -a $ALERT_TOPIC \
@@ -43,6 +45,7 @@ java -cp target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geome
 -p $ACC_PASS \
 --instance $ACC_INST \
 --catalog $GEOMESA_CATALOG_TABLE \
---broker $BROKER
+--broker $BROKER \
+--mock-geomesa $MOCK
 
 

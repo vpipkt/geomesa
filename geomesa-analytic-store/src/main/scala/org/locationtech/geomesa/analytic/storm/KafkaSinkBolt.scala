@@ -19,11 +19,11 @@ class KafkaSinkBolt extends BaseRichBolt {
   override def declareOutputFields(p1: OutputFieldsDeclarer): Unit = {}
 
   override def execute(p1: Tuple): Unit = {
-    val alert = p1.getValue(0).asInstanceOf[UUID].toString
+    val alertId = p1.getString(0)
     val site = p1.getString(1)
     val time = new DateTime(p1.getValue(2).asInstanceOf[Date]).toString(ISODateTimeFormat.dateTime())
 
-    val str = List(alert, site, time).mkString(",")
+    val str = List(alertId, site, time).mkString(",")
 
     producer.send(new KeyedMessage[String, Array[Byte]](topic, str.getBytes))
   }
