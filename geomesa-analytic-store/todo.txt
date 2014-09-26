@@ -6,3 +6,4 @@
    6. multiple date input formats
    7. run on a real kafka/storm cluster
    8. Add site geometry
+9. Bolt to convert CSV
