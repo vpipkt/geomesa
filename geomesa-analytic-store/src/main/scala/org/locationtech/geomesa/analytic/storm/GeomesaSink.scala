@@ -6,6 +6,7 @@ import backtype.storm.topology.base.BaseRichBolt
 import backtype.storm.tuple.Tuple
 import org.geotools.data.{DataUtilities, DataStoreFinder, FeatureStore}
 import org.geotools.feature.DefaultFeatureCollection
+import org.locationtech.geomesa.analytic.storm.SiteGeomMapping.Site
 import org.locationtech.geomesa.core.data._
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -18,6 +19,7 @@ abstract class GeoMesaSink extends BaseRichBolt {
   private var outputCollector: OutputCollector = null
   private var sft: SimpleFeatureType = null
   private var featureStore: FeatureStore[SimpleFeatureType, SimpleFeature] = null
+  var sites: Seq[Site] = null
 
   override def declareOutputFields(declarer: OutputFieldsDeclarer): Unit = {}
 
@@ -58,6 +60,8 @@ abstract class GeoMesaSink extends BaseRichBolt {
     ds.createSchema(sft)
     this.featureStore = ds.getFeatureSource(sft.getTypeName).asInstanceOf[FeatureStore[SimpleFeatureType, SimpleFeature]]
 
+    this.sites = SiteGeomMapping.decode(stormConf.get("sites").asInstanceOf[String])
+
     println(s"Set up GeoMesa Sink $getSinkName")
   }
 
@@ -68,6 +72,8 @@ abstract class GeoMesaSink extends BaseRichBolt {
   def buildFeature(input: Tuple): SimpleFeature
 
   def getSft = sft
+
+  def getSiteGeom(site: String) = sites.find( s => s.name == site).get.geom
 
 }
 

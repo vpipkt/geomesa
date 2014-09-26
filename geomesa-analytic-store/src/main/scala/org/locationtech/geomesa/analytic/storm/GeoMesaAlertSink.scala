@@ -18,7 +18,7 @@ class GeoMesaAlertSink extends GeoMesaSink {
     val alertId = input.getString(0)
     val site = input.getString(1)
     val time = input.getValue(2).asInstanceOf[Date]
-    val geom = WKTUtils.read("POINT(45 45)")
+    val geom = getSiteGeom(site)
     AvroSimpleFeatureFactory.buildAvroFeature(getSft, List(alertId, site, time, geom), alertId)
   }
 

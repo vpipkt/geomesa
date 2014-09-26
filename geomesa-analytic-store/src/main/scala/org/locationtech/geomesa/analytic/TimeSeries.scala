@@ -4,7 +4,7 @@ import java.util.UUID
 
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics
-import org.joda.time.DateTime
+import org.joda.time.{DateTimeZone, Interval, DateTime}
 
 class TimeSeries(interval: TimeInterval = DayInterval,
                  window: Int = 5,
@@ -31,8 +31,12 @@ class TimeSeries(interval: TimeInterval = DayInterval,
     if (curUnit == null) {
       startUnit(unit)
     } else if (!interval.sameInterval(unit, curUnit)) {
-      endUnit()
-      startUnit(unit)
+      do {
+        val tmp = curUnit
+        endUnit()
+        startUnit(interval.nextInterval(tmp))
+      }
+      while(!interval.sameInterval(unit, curUnit))
     }
 
     val isAlert = doAddObs(numObs)
@@ -51,6 +55,7 @@ class TimeSeries(interval: TimeInterval = DayInterval,
   def startUnit(time: DateTime) = {
     timeUnits += time
     curUnit = interval.timeInterval(time)
+    println(curUnit.toDate.toGMTString)
     obs += new UnitCount(curUnit)
   }
 
@@ -74,16 +79,20 @@ class TimeSeries(interval: TimeInterval = DayInterval,
     }
   }
 
-  def endUnit() = {
-    logger.trace("\tClosing "+curUnit+" with count " + obs.last.getCount())
+  private def endUnit() = {
     saveFunc(TimeSeriesData(curUnit, obs.last.getCount(), curUnitAlerted, Option(lastAlertId)))
+    resetUnitState()
+    updateStats()
+  }
 
-    // Reset current unit state
+  private def resetUnitState() = {
     curUnit = null
     curUnitAlerted = false
     lastAlertId = null
+  }
 
-    obs.lastOption.foreach { dc => fullStats.addValue(dc.getCount()) }
+  private def updateStats() = {
+    fullStats.addValue(obs.last.getCount())
     mostRecentUnitStats = fullStats.copy()
   }
 
@@ -109,7 +118,8 @@ case class UnitState(curUnit: DateTime = null, curUnitAlerted: Boolean = false, 
 sealed trait TimeInterval {
   def timeInterval(d: DateTime): DateTime
   def sameInterval(d1: DateTime, d2: DateTime) = timeInterval(d1) == timeInterval(d2)
-  def newDay = new DateTime(0)
+  def newDay = new DateTime(0).withZone(DateTimeZone.forID("GMT"))
+  def nextInterval(d: DateTime): DateTime
 }
 
 object HourInterval extends TimeInterval {
@@ -118,6 +128,9 @@ object HourInterval extends TimeInterval {
       withYear(d.getYear).
       withDayOfYear(d.getDayOfYear).
       withHourOfDay(d.getHourOfDay)
+
+  def nextInterval(d: DateTime) = timeInterval(d).plusHours(1)
+
 }
 
 object DayInterval extends TimeInterval {
@@ -125,6 +138,8 @@ object DayInterval extends TimeInterval {
     newDay.
       withYear(d.getYear).
       withDayOfYear(d.getDayOfYear)
+
+  def nextInterval(d: DateTime) = timeInterval(d).plusDays(1)
 }
 
 object MinuteInterval extends TimeInterval {
@@ -134,6 +149,8 @@ object MinuteInterval extends TimeInterval {
       withDayOfYear(d.getDayOfYear).
       withHourOfDay(d.getHourOfDay).
       withMinuteOfHour(d.getMinuteOfDay)
+
+  def nextInterval(d: DateTime) = timeInterval(d).plusMinutes(1)
 }
 
 object SecondInterval extends TimeInterval {
@@ -144,4 +161,6 @@ object SecondInterval extends TimeInterval {
       withHourOfDay(d.getHourOfDay).
       withMinuteOfHour(d.getMinuteOfHour).
       withSecondOfMinute(d.getSecondOfMinute)
+
+  def nextInterval(d: DateTime) = timeInterval(d).plusSeconds(1)
 }

@@ -8,7 +8,7 @@ import backtype.storm.topology.OutputFieldsDeclarer
 import backtype.storm.topology.base.BaseRichBolt
 import backtype.storm.tuple.Tuple
 import kafka.producer.{KeyedMessage, ProducerConfig, Producer}
-import org.joda.time.DateTime
+import org.joda.time.{DateTimeZone, DateTime}
 import org.joda.time.format.ISODateTimeFormat
 
 class KafkaSinkBolt extends BaseRichBolt {
@@ -21,7 +21,7 @@ class KafkaSinkBolt extends BaseRichBolt {
   override def execute(p1: Tuple): Unit = {
     val alertId = p1.getString(0)
     val site = p1.getString(1)
-    val time = new DateTime(p1.getValue(2).asInstanceOf[Date]).toString(ISODateTimeFormat.dateTime())
+    val time = new DateTime(p1.getValue(2).asInstanceOf[Date]).toString(ISODateTimeFormat.dateTime().withZone(DateTimeZone.forID("GMT")))
 
     val str = List(alertId, site, time).mkString(",")
 

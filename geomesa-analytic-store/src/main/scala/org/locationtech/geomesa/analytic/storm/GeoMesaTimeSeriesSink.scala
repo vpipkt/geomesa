@@ -30,7 +30,7 @@ class GeoMesaTimeSeriesSink extends GeoMesaSink {
     val count = input.getInteger(2)
     val isAlert = input.getBoolean(3)
     val alertId = input.getString(4)
-    val geom = WKTUtils.read("POINT(45 45)")
+    val geom = getSiteGeom(site)
 
     // site:String:index=true,count:Int:index=true,isAlert:Boolean:index=true,dtg:Date,*geom:Point
     AvroSimpleFeatureFactory.buildAvroFeature(getSft, List(site, count, isAlert, alertId, time, geom), UUID.randomUUID().toString)

@@ -1,11 +1,14 @@
 package org.locationtech.geomesa.analytic.storm
 
+import java.io.File
 import java.util.UUID
 
 import backtype.storm.topology.TopologyBuilder
 import backtype.storm.{StormSubmitter, Config, LocalCluster}
+import com.vividsolutions.jts.geom.Geometry
 import org.joda.time.format.ISODateTimeFormat
 import org.locationtech.geomesa.analytic.storm.GeoMesaSinkParams._
+import org.locationtech.geomesa.utils.text.WKTUtils
 
 object StormExecutor {
 
@@ -54,6 +57,9 @@ object StormExecutor {
     conf.put("timeseries.window", aconf.window.toString)
     conf.put("input.quoted", aconf.quotedInput.toString)
     conf.put("input.date.format", aconf.dateFormat)
+
+    val encodedSites = SiteGeomMapping.encode(SiteGeomMapping.read(aconf.siteGeomFile))
+    conf.put("sites", encodedSites)
 
     Seq(
       GeoMesaAlertSinkParams.SftName -> aconf.alertSftName,
@@ -108,6 +114,8 @@ object StormExecutor {
         c.copy(broker = x) } text("kafka brokers")
       opt[Boolean]("mock-geomesa") action { (x, c) =>
         c.copy(mockGeomesa = x) } text("true/false use mock geomesa (default false)")
+      opt[File]("site-geom-file") action { (x, c) =>
+        c.copy(siteGeomFile = x) } text("csv file with 2 fields: site, geom")
     }
     // parser.parse returns Option[C]
     parser.parse(args, ActivityConfig()) map { config =>
@@ -133,5 +141,6 @@ object StormExecutor {
                              instance: String = null,
                              catalog: String = null,
                              broker: String = null,
-                             mockGeomesa: Boolean = false)
+                             mockGeomesa: Boolean = false,
+                             siteGeomFile: File = null)
 }

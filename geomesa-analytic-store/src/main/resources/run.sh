@@ -8,7 +8,7 @@ JAR="target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar"
 
 # args
 IN_TOPIC="ts_input"
-QUOTE="false"
+QUOTE="true"
 ALERT_TOPIC="ts_alerts"
 TIMESERIES_TOPIC="ts_aggregated"
 WINDOW="4"
@@ -24,6 +24,7 @@ ACC_INST="dcloud"
 GEOMESA_CATALOG_TABLE="actind_catalog"
 BROKER="localhost:9092"
 MOCK="true"
+SITES_FILE="src/main/resources/sites.mapping"
 
 # cluster (replace line below)
 #storm jar target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geomesa.analytic.storm.StormExecutor \
@@ -46,6 +47,7 @@ java -cp target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geome
 --instance $ACC_INST \
 --catalog $GEOMESA_CATALOG_TABLE \
 --broker $BROKER \
---mock-geomesa $MOCK
+--mock-geomesa $MOCK \
+--site-geom-file $SITES_FILE
 
 

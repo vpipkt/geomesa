@@ -38,15 +38,10 @@ Derived from online apache kafka documentation...
 ### 2. Start a single node zookeeper
 
     bin/zookeeper-server-start.sh config/zookeeper.properties &
-    [2013-04-22 15:01:37,495] INFO Reading configuration from: config/zookeeper.properties (org.apache.zookeeper.server.quorum.QuorumPeerConfig)
-    ...
 
 ### 3. Start the kafka server
 
     bin/kafka-server-start.sh config/server.properties &
-    [2013-04-22 15:01:47,028] INFO Verifying properties (kafka.utils.VerifiableProperties)
-    [2013-04-22 15:01:47,051] INFO Property socket.send.buffer.bytes is overridden to 1048576 (kafka.utils.VerifiableProperties)
-    ...
 
 ### 4. Create Input and output topics.
 The input topic will be used to feed data into the TimeSeries topology. The output topic is for use by any other
@@ -80,26 +75,26 @@ TimeSeries CSV format consists of three fields: date (in ISO8601 format), site_n
 
 For example...here are two sites (over 7 days) with interleaved, multiday, multicount inputs:
 
-    2014-01-01T05:05:05.000Z,Virginia,1
-    2014-01-01T05:05:05.000Z,Virginia,3
-    2014-01-01T05:05:05.000Z,North Carolina,3
-    2014-01-02T05:05:05.000Z,Virginia,2
-    2014-01-02T05:05:05.000Z,Virginia,1
-    2014-01-02T05:05:05.000Z,Virginia,1
-    2014-01-02T05:05:05.000Z,North Carolina,1
-    2014-01-02T05:05:05.000Z,North Carolina,2
-    2014-01-03T05:05:05.000Z,Virginia,2
-    2014-01-03T05:05:05.000Z,North Carolina,2
-    2014-01-04T05:05:05.000Z,North Carolina,1
-    2014-01-04T05:05:05.000Z,Virginia,3
-    2014-01-04T05:05:05.000Z,North Carolina,2
-    2014-01-05T05:05:05.000Z,Virginia,5
-    2014-01-05T05:05:05.000Z,North Carolina,5
-    2014-01-06T05:05:05.000Z,North Carolina,21
-    2014-01-06T05:05:05.000Z,Virginia,5
-    2014-01-06T05:05:05.000Z,Virginia,17
-    2014-01-07T05:05:05.000Z,North Carolina,2
-    2014-01-07T05:05:05.000Z,Virginia,3
+    "2014-01-01T05:05:05.000+0000","Virginia","1"
+    "2014-01-01T05:05:05.000+0000","Virginia","3"
+    "2014-01-01T05:05:05.000+0000","North Carolina","3"
+    "2014-01-02T05:05:05.000+0000","Virginia","2"
+    "2014-01-02T05:05:05.000+0000","Virginia","1"
+    "2014-01-02T05:05:05.000+0000","Virginia","1"
+    "2014-01-02T05:05:05.000+0000","North Carolina","1"
+    "2014-01-02T05:05:05.000+0000","North Carolina","2"
+    "2014-01-03T05:05:05.000+0000","Virginia","2"
+    "2014-01-03T05:05:05.000+0000","North Carolina","2"
+    "2014-01-04T05:05:05.000+0000","North Carolina","1"
+    "2014-01-04T05:05:05.000+0000","Virginia","3"
+    "2014-01-04T05:05:05.000+0000","North Carolina","2"
+    "2014-01-05T05:05:05.000+0000","Virginia","5"
+    "2014-01-05T05:05:05.000+0000","North Carolina","5"
+    "2014-01-06T05:05:05.000+0000","North Carolina","21"
+    "2014-01-06T05:05:05.000+0000","Virginia","5"
+    "2014-01-06T05:05:05.000+0000","Virginia","17"
+    "2014-01-07T05:05:05.000+0000","North Carolina","2"
+    "2014-01-07T05:05:05.000+0000","Virginia","3"
 
 Simply copy/paste this into the Kafka Console Producer created in Step 5 to send it into the Storm topology via Kafka.
 
