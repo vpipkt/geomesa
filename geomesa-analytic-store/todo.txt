@@ -4,4 +4,4 @@
 4. send timeseries to geomesa when alert happens?
 5. possible updates to time series?
 6. multiple date input formats
-
+7. run on a real kafka/storm cluster
