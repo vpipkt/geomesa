@@ -54,9 +54,11 @@ object StormExecutor {
     conf.put("broker", aconf.broker)
     conf.put("topic.in", aconf.inputTopic)
     conf.put("topic.alert", aconf.alertTopic)
+    conf.put("topic.timeseries", aconf.alertTopic)
     conf.put("timeseries.window", aconf.window.toString)
     conf.put("input.quoted", aconf.quotedInput.toString)
     conf.put("input.date.format", aconf.dateFormat)
+    conf.put("kafka.zoo", aconf.zookeepers)
 
     val encodedSites = SiteGeomMapping.encode(SiteGeomMapping.read(aconf.siteGeomFile))
     conf.put("sites", encodedSites)

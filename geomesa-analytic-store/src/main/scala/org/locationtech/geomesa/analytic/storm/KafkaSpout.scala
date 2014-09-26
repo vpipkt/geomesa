@@ -71,7 +71,7 @@ class KafkaSpout() extends IRichSpout {
 
   override def open(conf: util.Map[_, _], context: TopologyContext, collector: SpoutOutputCollector): Unit = {
     this.collector = collector
-    consumerConnector = Consumer.create(ConsumerPropertiesBuilder.build())
+    consumerConnector = Consumer.create(ConsumerPropertiesBuilder.build(conf.get("kafka.zoo").asInstanceOf[String]))
     val dateFormat = conf.get("input.date.format").asInstanceOf[String]
     this.dtParser = DateTimeFormat.forPattern(dateFormat)
     this.topic = conf.get("topic.in").asInstanceOf[String]
@@ -90,9 +90,9 @@ class KafkaSpout() extends IRichSpout {
 }
 
 object ConsumerPropertiesBuilder {
-  def build() = {
+  def build(zk: String) = {
     val props = new Properties()
-    props.put("zookeeper.connect", "localhost:2181")
+    props.put("zookeeper.connect", zk)
     props.put("group.id", "ahulbert_foobar1")
     new ConsumerConfig(props)
   }
