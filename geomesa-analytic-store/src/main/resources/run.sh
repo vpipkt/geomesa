@@ -5,13 +5,14 @@
 echo "Starting Activity Indicator..."
 
 JAR="target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar"
+MAINCLASS="org.locationtech.geomesa.analytic.storm.StormExecutor"
 
 # args
 IN_TOPIC="ts_input"
 QUOTE="true"
 ALERT_TOPIC="ts_alerts"
 TIMESERIES_TOPIC="ts_aggregated"
-WINDOW="4"
+WINDOW="20"
 INPUT_DATE_FMT="yyyy-MM-dd'T'HH:mm:ss.SSSZ"
 MODE="local"
 TOPOLOGY_NAME="activityIndicator"
@@ -30,7 +31,7 @@ SITES_FILE="src/main/resources/sites.mapping"
 #storm jar target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geomesa.analytic.storm.StormExecutor \
 
 # local
-java -cp target/geomesa-analytic-store-1.0.0-SNAPSHOT.jar org.locationtech.geomesa.analytic.storm.StormExecutor \
+java -cp $JAR $MAINCLASS \
 -i $IN_TOPIC \
 -q $QUOTE \
 -a $ALERT_TOPIC \
