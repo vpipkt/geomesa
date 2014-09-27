@@ -55,7 +55,6 @@ class TimeSeries(interval: TimeInterval = DayInterval,
   def startUnit(time: DateTime) = {
     timeUnits += time
     curUnit = interval.timeInterval(time)
-    println(curUnit.toDate.toGMTString)
     obs += new UnitCount(curUnit)
   }
 
@@ -102,7 +101,7 @@ class TimeSeries(interval: TimeInterval = DayInterval,
 
   def getDayDiff = obs.last.getCount - getMean
 
-  def getSigma = getDayDiff
+  def getSigma = getDayDiff / getStandardDeviation
 
   def getLastCount = obs.last.getCount()
 
