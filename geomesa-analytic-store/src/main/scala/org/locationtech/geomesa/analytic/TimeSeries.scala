@@ -69,7 +69,7 @@ class TimeSeries(interval: TimeInterval = DayInterval,
     mostRecentUnitStats.addValue(obs.last.getCount())
 
     // return true if obs caused an alert and we haven't generated one yet
-    val alertGenerated = getSigma > sigmaSensivity
+    val alertGenerated = obs.length > window && getSigma > sigmaSensivity
     if (alertGenerated && !curUnitAlerted) {
       curUnitAlerted = true
       true
