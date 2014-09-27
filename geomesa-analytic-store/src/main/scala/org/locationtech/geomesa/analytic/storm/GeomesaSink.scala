@@ -58,6 +58,10 @@ abstract class GeoMesaSink extends BaseRichBolt {
     ).asJava
     val ds = DataStoreFinder.getDataStore(dsParams)
     ds.createSchema(sft)
+
+    // Sleep for 10 seconds to try and let the createSchema run since it is throwing errors
+    Thread.sleep(10*1000)
+
     this.featureStore = ds.getFeatureSource(sft.getTypeName).asInstanceOf[FeatureStore[SimpleFeatureType, SimpleFeature]]
 
     this.sites = SiteGeomMapping.decode(stormConf.get("sites").asInstanceOf[String])

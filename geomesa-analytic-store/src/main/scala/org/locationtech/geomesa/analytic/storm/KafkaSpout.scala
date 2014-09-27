@@ -11,7 +11,7 @@ import backtype.storm.tuple.{Fields, Values}
 import kafka.consumer.{Consumer, ConsumerConfig, ConsumerConnector, KafkaStream}
 import kafka.message.MessageAndMetadata
 import kafka.serializer.DefaultDecoder
-import org.joda.time.DateTime
+import org.joda.time.{DateTimeZone, DateTime}
 import org.joda.time.format.{DateTimeFormat, DateTimeFormatter, ISODateTimeFormat}
 
 class KafkaSpout() extends IRichSpout {
@@ -73,6 +73,7 @@ class KafkaSpout() extends IRichSpout {
     this.collector = collector
     consumerConnector = Consumer.create(ConsumerPropertiesBuilder.build(conf.get("kafka.zoo").asInstanceOf[String]))
     val dateFormat = conf.get("input.date.format").asInstanceOf[String]
+    DateTimeZone.setDefault(DateTimeZone.forID("GMT")) // default to GMT
     this.dtParser = DateTimeFormat.forPattern(dateFormat)
     this.topic = conf.get("topic.in").asInstanceOf[String]
     this.inputQuoted = conf.get("input.quoted").asInstanceOf[String].toBoolean
