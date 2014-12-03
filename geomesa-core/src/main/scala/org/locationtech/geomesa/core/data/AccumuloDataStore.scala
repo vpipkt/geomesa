@@ -686,7 +686,7 @@ class AccumuloDataStore(val connector: Connector,
   }
 
   private def getNewBounds(env: String, bounds: ReferencedEnvelope) = {
-    val oldBounds = stringToReferencedEnvelope(env, DefaultGeographicCRS.WGS84)
+    val oldBounds = stringToReferencedEnvelope(env, bounds.getCoordinateReferenceSystem)
     oldBounds.expandToInclude(bounds)
     oldBounds
   }
