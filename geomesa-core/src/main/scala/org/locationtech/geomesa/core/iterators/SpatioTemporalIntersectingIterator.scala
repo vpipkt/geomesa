@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.core.iterators
 
-import java.util.{HashSet => JHashSet}
+import java.util.{Collections, HashSet => JHashSet}
 
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.data.{ArrayByteSequence, ByteSequence, Key, Range, Value}
@@ -26,6 +26,7 @@ import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.core._
 import org.locationtech.geomesa.core.data._
+import org.locationtech.geomesa.core.index.IndexEntry.DecodedIndexValue
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 
@@ -57,7 +58,7 @@ class SpatioTemporalIntersectingIterator
   protected var topValue: Value = null
   protected var nextKey: Key = null
   protected var nextValue: Value = null
-  protected var curId: Text = null
+//  protected var curId: Text = null
 
   protected var deduplicate: Boolean = false
 
@@ -94,7 +95,8 @@ class SpatioTemporalIntersectingIterator
     this.dataSource = source.deepCopy(env)
   }
 
-  def hasTop = nextKey != null || topKey != null
+  //def hasTop = nextKey != null || topKey != null
+  def hasTop = topKey != null
 
   def getTopKey = topKey
 
@@ -196,10 +198,11 @@ class SpatioTemporalIntersectingIterator
    */
   def seekData(indexValue: IndexEntry.DecodedIndexValue) {
     val nextId = indexValue.id
-    curId = new Text(nextId)
+//    curId = new Text(nextId)
     val indexSourceTopKey = indexSource.getTopKey
 
-    val dataSeekKey = new Key(indexSourceTopKey.getRow, curId)
+//    val dataSeekKey = new Key(indexSourceTopKey.getRow, curId)
+    val dataSeekKey = new Key(indexSourceTopKey.getRow, null)
     val range = new Range(dataSeekKey, null)
     val colFamilies = List[ByteSequence](new ArrayByteSequence(nextId.getBytes)).asJavaCollection
     dataSource.seek(range, colFamilies, true)
@@ -216,22 +219,92 @@ class SpatioTemporalIntersectingIterator
     }
   }
 
+  val curRow = new Text()
+  val idxCandidates = Array.ofDim[(Key, DecodedIndexValue, Int)](1024)
+  var curRowSize = -1
+  var nextIdx = -1
+  def collectIndexCandidates() = {
+    skipDataEntries(indexSource)
+    if (indexSource.hasTop) {
+      indexSource.getTopKey.getRow(curRow)
+
+      var i = 0
+      while (indexSource.hasTop && indexSource.getTopKey.compareRow(curRow) == 0) {
+        if (isKeyValueAnIndexEntry(indexSource.getTopKey, indexSource.getTopValue)) {
+          val decodedValue = IndexEntry.decodeIndexValue(indexSource.getTopValue)
+          def isSTAcceptable = wrappedSTFilter(decodedValue.geom, decodedValue.dtgMillis)
+          // see whether this box is acceptable
+          // (the tests are ordered from fastest to slowest to take advantage of
+          // short-circuit evaluation)
+          if (isIdUnique(decodedValue.id) && isSTAcceptable) {
+            // stash this ID
+            rememberId(decodedValue.id)
+            idxCandidates(i) = (new Key(indexSource.getTopKey), decodedValue, i)
+            i += 1
+          }
+        }
+        indexSource.next()
+      }
+      if (i > 0) {
+        curRowSize = i
+        nextIdx = 0
+      }
+    }
+  }
+
+  val dataCandidates = Array.ofDim[(Key, Value)](1024)
+  def collectDataCandidates() = {
+    if (curRowSize > 0) {
+      val sorted = idxCandidates.take(curRowSize).sortBy(_._2.id)
+
+      val dataSeekKey = new Key(sorted(0)._1.getRow, new Text(sorted(0)._2.id))
+      val range = new Range(dataSeekKey, null)
+      val colFamilies = Collections.singleton[ByteSequence](new ArrayByteSequence(sorted(0)._2.id.getBytes))
+      dataSource.seek(range, colFamilies, true)
+      skipIndexEntries(dataSource)
+
+      sorted.foreach { el =>
+        val curId = new Text(el._2.id)
+        while (dataSource.getTopKey.compareColumnFamily(curId) != 0) {
+          dataSource.next()
+          //skipIndexEntries(dataSource)
+        }
+        dataCandidates(el._3) = (el._1, new Value(dataSource.getTopValue))
+      }
+      //dataSource.next()
+    }
+  }
+
   /**
    * If there was a next, then we pre-fetched it, so we report those entries
    * back to the user, and make an attempt to pre-fetch another row, allowing
    * us to know whether there exists, in fact, a next entry.
    */
   def next() {
-    if (nextKey == null) {
-      // this means that there are no more data to return
+    if(curRowSize == -1) {
+      collectIndexCandidates()
+      collectDataCandidates()
+      if(curRowSize > 0) {
+        topKey = dataCandidates(0)._1
+        topValue = dataCandidates(0)._2
+        nextIdx = 1
+      }
+    } else if(nextIdx < curRowSize) {
+      topKey = dataCandidates(nextIdx)._1
+      topValue = dataCandidates(nextIdx)._2
+      nextIdx += 1
+    } else {
       topKey = null
       topValue = null
-    } else {
-      // assume the previously found values
-      topKey = nextKey
-      topValue = nextValue
-
-      findTop()
+      curRowSize = -1
+      nextIdx = -1
+      collectIndexCandidates()
+      collectDataCandidates()
+      if(curRowSize > 0) {
+        topKey = dataCandidates(0)._1
+        topValue = dataCandidates(0)._2
+        nextIdx = 1
+      }
     }
   }
 
@@ -245,14 +318,7 @@ class SpatioTemporalIntersectingIterator
   def seek(range: Range, columnFamilies: java.util.Collection[ByteSequence], inclusive: Boolean) {
     // move the source iterator to the right starting spot
     indexSource.seek(range, columnFamilies, inclusive)
-
-    // find the first index-entry that is inside the search polygon
-    // (use the current entry, if it's already inside the search polygon)
-    findTop()
-
-    // pre-fetch the next entry, if one exists
-    // (the idea is to always be one entry ahead)
-    if (nextKey != null) next()
+    next()
   }
 
   def deepCopy(env: IteratorEnvironment) = throw new UnsupportedOperationException("STII does not support deepCopy.")

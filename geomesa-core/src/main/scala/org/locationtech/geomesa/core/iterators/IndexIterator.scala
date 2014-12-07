@@ -19,6 +19,7 @@ package org.locationtech.geomesa.core.iterators
 import com.vividsolutions.jts.geom._
 import org.apache.accumulo.core.data._
 import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
+import org.apache.hadoop.io.Text
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.filter.text.ecql.ECQL
 import org.joda.time.DateTime
@@ -133,6 +134,18 @@ class IndexIterator
     deduplicate = IndexSchema.mayContainDuplicates(featureType)
 
     this.indexSource = source.deepCopy(env)
+  }
+
+  override def collectDataCandidates(): Unit = {
+    if (curRowSize > 0) {
+      idxCandidates.take(curRowSize).foreach { el =>
+        val decodedValue = el._2
+        // using the already decoded index value, generate a SimpleFeature and set as the Value
+        val nextSimpleFeature =
+          encodeIndexValueToSF(decodedValue.id, decodedValue.geom, decodedValue.dtgMillis)
+        dataCandidates(el._3) = (el._1, new Value(featureEncoder.encode(nextSimpleFeature)))
+      }
+    }
   }
 
   /**
