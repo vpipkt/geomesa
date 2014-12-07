@@ -26,9 +26,59 @@ import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
+import org.locationtech.geomesa.utils.text.ObjectPoolFactory
 import org.opengis.feature.`type`.AttributeDescriptor
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
+trait MinimalSimpleFeatureIterator {
+  import org.locationtech.geomesa.core.iterators.IteratorTrigger._
+
+  def featureBuilder: SimpleFeatureBuilder
+  def featureType: SimpleFeatureType
+  lazy val geomIdx = featureType.indexOf(featureType.getGeometryDescriptor.getLocalName)
+  lazy val sdtgIdx = featureType.startTimeName.map { n => featureType.indexOf(n) }.getOrElse(-1)
+  lazy val edtgIdx = featureType.endTimeName.map { n => featureType.indexOf(n) }.getOrElse(-1)
+  lazy val hasDtg = featureType.startTimeName.isDefined
+
+  /**
+   * Converts values taken from the Index Value to a SimpleFeature, using the passed SimpleFeatureBuilder
+   * Note that the ID, taken from the index, is preserved
+   * Also note that the SimpleFeature's other attributes may not be fully parsed and may be left as null;
+   * the SimpleFeatureFilteringIterator *may* remove the extraneous attributes later in the Iterator stack
+   */
+  def encodeIndexValueToSF(id: String,
+                           geom: Geometry,
+                           dtgMillis: Option[Long]): SimpleFeature = {
+    val dtgDate = dtgMillis.map { time => new DateTime(time).toDate }
+
+    // Build and fill the Feature. This offers some performance gain over building and then setting the attributes.
+    attrArrayPool.withResource { attrArray =>
+      featureBuilder.buildFeature(id, fillAttributeArray(geom, dtgDate, attrArray))
+    }
+  }
+
+  private val attrArrayPool = ObjectPoolFactory(Array.ofDim[AnyRef](featureType.getAttributeCount))
+
+  /**
+   * Construct and fill an array of the SimpleFeature's attribute values
+   * Reuse attrArray as it is copied inside of feature builder anyway
+   */
+  private def fillAttributeArray(geomValue: Geometry,
+                                 date: Option[java.util.Date],
+                                 attrArray: Array[AnyRef]) = {
+    // always set the mandatory geo element
+    attrArray(geomIdx) = geomValue
+    if(hasDtg) {
+      // if dtgDT exists, attempt to fill the elements corresponding to the start and/or end times
+      date.foreach { time =>
+        if(sdtgIdx != -1) attrArray(sdtgIdx) = time
+        if(edtgIdx != -1) attrArray(edtgIdx) = time
+      }
+    }
+    attrArray
+  }
+
+}
 /**
  * This is an Index Only Iterator, to be used in situations where the data records are
  * not useful enough to pay the penalty of decoding when using the
@@ -40,10 +90,14 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
  * Note that this extends the SpatioTemporalIntersectingIterator, but never creates a dataSource
  * and hence never iterates through it.
  */
-class IndexIterator extends SpatioTemporalIntersectingIterator with SortedKeyValueIterator[Key, Value] {
+class IndexIterator
+  extends SpatioTemporalIntersectingIterator
+  with SortedKeyValueIterator[Key, Value]
+  with MinimalSimpleFeatureIterator {
 
   import org.locationtech.geomesa.core._
 
+  var featureType: SimpleFeatureType = null
   var featureBuilder: SimpleFeatureBuilder = null
   var featureEncoder: SimpleFeatureEncoder = null
   var outputAttributes: List[AttributeDescriptor] = null
@@ -56,7 +110,7 @@ class IndexIterator extends SpatioTemporalIntersectingIterator with SortedKeyVal
 
     val simpleFeatureTypeSpec = options.get(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
 
-    val featureType = SimpleFeatureTypes.createType(this.getClass.getCanonicalName, simpleFeatureTypeSpec)
+    featureType = SimpleFeatureTypes.createType(this.getClass.getCanonicalName, simpleFeatureTypeSpec)
     featureType.decodeUserData(options, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
 
     dateAttributeName = getDtgFieldName(featureType)
@@ -93,41 +147,13 @@ class IndexIterator extends SpatioTemporalIntersectingIterator with SortedKeyVal
     // now increment the value of nextKey, copy because reusing it is UNSAFE
     nextKey = new Key(indexSource.getTopKey)
     // using the already decoded index value, generate a SimpleFeature and set as the Value
-    val nextSimpleFeature = IndexIterator.encodeIndexValueToSF(featureBuilder, decodedValue.id,
-      decodedValue.geom, decodedValue.dtgMillis)
+    val nextSimpleFeature =
+      encodeIndexValueToSF(decodedValue.id, decodedValue.geom, decodedValue.dtgMillis)
+
     nextValue = new Value(featureEncoder.encode(nextSimpleFeature))
   }
 
   override def deepCopy(env: IteratorEnvironment) =
     throw new UnsupportedOperationException("IndexIterator does not support deepCopy.")
-}
 
-object IndexIterator {
-  import org.locationtech.geomesa.core.iterators.IteratorTrigger.IndexAttributeNames
-
-  /**
-   * Converts values taken from the Index Value to a SimpleFeature, using the passed SimpleFeatureBuilder
-   * Note that the ID, taken from the index, is preserved
-   * Also note that the SimpleFeature's other attributes may not be fully parsed and may be left as null;
-   * the SimpleFeatureFilteringIterator *may* remove the extraneous attributes later in the Iterator stack
-   */
-  def encodeIndexValueToSF(featureBuilder: SimpleFeatureBuilder, id: String,
-                           geom: Geometry, dtgMillis: Option[Long]): SimpleFeature = {
-    val theType = featureBuilder.getFeatureType
-    val dtgDate = dtgMillis.map{time => new DateTime(time).toDate}
-    // Build and fill the Feature. This offers some performance gain over building and then setting the attributes.
-    featureBuilder.buildFeature(id, attributeArray(theType, geom, dtgDate ))
-  }
-
-  /**
-   * Construct and fill an array of the SimpleFeature's attribute values
-   */
-  def attributeArray(theType: SimpleFeatureType, geomValue: Geometry, date: Option[java.util.Date]) = {
-    val attrArray = new Array[AnyRef](theType.getAttributeCount)
-    // always set the mandatory geo element
-    attrArray(theType.indexOf(theType.geoName)) = geomValue
-    // if dtgDT exists, attempt to fill the elements corresponding to the start and/or end times
-    date.map{time => (theType.startTimeName ++ theType.endTimeName).map{name =>attrArray(theType.indexOf(name)) = time}}
-    attrArray
-  }
 }

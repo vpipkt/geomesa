@@ -31,6 +31,7 @@ import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.`type`.AttributeDescriptor
+import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.util.{Failure, Success}
 
@@ -41,7 +42,10 @@ import scala.util.{Failure, Success}
  * This iterator returns as its nextKey the key for the index. nextValue is
  * the value for the INDEX, mapped into a SimpleFeature
  */
-class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Logging {
+class AttributeIndexIterator
+  extends SortedKeyValueIterator[Key, Value]
+  with MinimalSimpleFeatureIterator
+  with Logging {
 
   var indexSource: SortedKeyValueIterator[Key, Value] = null
 
@@ -52,6 +56,7 @@ class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Log
   var dtgFieldName: Option[String] = null
   var attributeRowPrefix: String = null
   var attributeType: Option[AttributeDescriptor] = null
+  var featureType: SimpleFeatureType = null
   var featureBuilder: SimpleFeatureBuilder = null
   var featureEncoder: SimpleFeatureEncoder = null
 
@@ -66,8 +71,8 @@ class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Log
     val simpleFeatureTypeSpec = options.get(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
 
     // we need the original SFT name in order to decode correctly due to table sharing
-    val featureType = SimpleFeatureTypes
-        .createType(options.get(GEOMESA_ITERATORS_SFT_NAME), simpleFeatureTypeSpec)
+    val sftName = options.get(GEOMESA_ITERATORS_SFT_NAME)
+    featureType = SimpleFeatureTypes.createType(sftName, simpleFeatureTypeSpec)
     featureType.decodeUserData(options, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
 
     dtgFieldName = getDtgFieldName(featureType)
@@ -143,10 +148,7 @@ class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Log
         // copy the key because reusing it is UNSAFE
         topKey = Some(new Key(indexSource.getTopKey))
         // using the already decoded index value, generate a SimpleFeature
-        val sf = IndexIterator.encodeIndexValueToSF(featureBuilder,
-                                                    decodedValue.id,
-                                                    decodedValue.geom,
-                                                    decodedValue.dtgMillis)
+        val sf = encodeIndexValueToSF(decodedValue.id, decodedValue.geom, decodedValue.dtgMillis)
 
         // if they requested the attribute value, decode it from the row key
         if (attributeType.isDefined) {

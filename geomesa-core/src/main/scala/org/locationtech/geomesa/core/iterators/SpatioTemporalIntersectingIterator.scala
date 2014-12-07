@@ -59,8 +59,6 @@ class SpatioTemporalIntersectingIterator
   protected var nextValue: Value = null
   protected var curId: Text = null
 
-
-
   protected var deduplicate: Boolean = false
 
   // each batch-scanner thread maintains its own (imperfect!) list of the

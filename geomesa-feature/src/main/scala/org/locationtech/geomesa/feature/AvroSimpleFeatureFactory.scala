@@ -68,5 +68,6 @@ object AvroSimpleFeatureFactory {
       builder.buildFeature(id)
     }
 
-  def featureBuilder(sft: SimpleFeatureType): SimpleFeatureBuilder = new SimpleFeatureBuilder(sft, featureFactory)
+  def featureBuilder(sft: SimpleFeatureType): SimpleFeatureBuilder =
+    new SimpleFeatureBuilder(sft, featureFactory)
 }

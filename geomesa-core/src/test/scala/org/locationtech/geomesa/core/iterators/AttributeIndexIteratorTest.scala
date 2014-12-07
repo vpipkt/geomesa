@@ -17,13 +17,14 @@
 package org.locationtech.geomesa.core.iterators
 
 import java.text.SimpleDateFormat
+import java.util.Map.Entry
 import java.util.{Collections, Date, TimeZone}
 
 import org.apache.accumulo.core.client.admin.TimeType
 import org.apache.accumulo.core.client.mock.MockInstance
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.accumulo.core.client.{BatchWriterConfig, IteratorSetting}
-import org.apache.accumulo.core.data.{Range => ARange}
+import org.apache.accumulo.core.data.{Range => ARange, Value, Key}
 import org.apache.accumulo.core.security.{Authorizations, ColumnVisibility}
 import org.geotools.data.Query
 import org.geotools.factory.{CommonFactoryFinder, Hints}
@@ -31,10 +32,12 @@ import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.core._
+import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
 import org.locationtech.geomesa.core.data.tables.AttributeTable
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.util.SelfClosingIterator
 import org.locationtech.geomesa.utils.text.WKTUtils
+import org.opengis.feature.simple.SimpleFeatureType
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
@@ -89,9 +92,14 @@ class AttributeIndexIteratorTest extends Specification with TestWithDataStore {
 
       // Scan and retrieve type = b manually with the iterator
       val scanner = conn.createScanner(table, new Authorizations())
+/*
       val opts = Map[String, String](GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE -> spec,
                                      GEOMESA_ITERATORS_SFT_NAME -> sftName)
-      val is = new IteratorSetting(40, classOf[AttributeIndexIterator], opts)
+*/
+      val is = new IteratorSetting(40, classOf[AttributeIndexIterator])
+      val dummyStrategy = new STIdxStrategy
+      dummyStrategy.configureFeatureTypeName(is, sft.getTypeName)
+      dummyStrategy.configureFeatureType(is, sft)
       scanner.addScanIterator(is)
       val range = AttributeTable.getAttributeIndexRows("", sft.getDescriptor("name"), Some("b")).head
       scanner.setRange(new ARange(range))
