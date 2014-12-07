@@ -28,6 +28,7 @@ import org.apache.accumulo.core.iterators.user.VersioningIterator
 import org.apache.accumulo.core.security.Authorizations
 import org.apache.commons.codec.binary.Hex
 import org.apache.hadoop.io.Text
+import org.apache.log4j.Logger
 import org.geotools.data._
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureStore
@@ -70,6 +71,7 @@ class AccumuloDataStoreTest extends Specification {
   val featureFactory = CommonFactoryFinder.getFeatureFactory(hints)
   val WGS84 = DefaultGeographicCRS.WGS84
   val gf = JTSFactoryFinder.getGeometryFactory
+  val logger = Logger.getLogger(classOf[AccumuloDataStoreTest])
 
   "AccumuloDataStore" should {
     "create a data store" >> {
@@ -1090,7 +1092,7 @@ class AccumuloDataStoreTest extends Specification {
         TransformProcess.toDefinition("name=name;helloName=strConcat('hello', name);geom=geom")
 
       val result = AccumuloFeatureStore.computeSchema(origSFT, definitions.toSeq)
-      println(SimpleFeatureTypes.encodeType(result))
+      logger.debug(SimpleFeatureTypes.encodeType(result))
 
       (result must not).beNull
     }

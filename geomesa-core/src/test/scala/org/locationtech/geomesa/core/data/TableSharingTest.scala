@@ -4,6 +4,7 @@ import java.util
 
 import org.apache.accumulo.core.client.mock.MockInstance
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
+import org.apache.log4j.Logger
 import org.geotools.data.DataStoreFinder
 import org.geotools.data.simple.SimpleFeatureSource
 import org.geotools.filter.text.ecql.ECQL
@@ -21,6 +22,7 @@ class TableSharingTest extends Specification {
   sequential
 
   val tableName = "sharingTest"
+  val logger = Logger.getLogger(classOf[TableSharingTest])
 
   val ds = {
     DataStoreFinder.getDataStore(Map(
@@ -119,10 +121,10 @@ class TableSharingTest extends Specification {
     sft2Scanner.iterator
       .map(e => s"ST Key: ${e.getKey}")
       .filter(_.contains("feature2"))
-      .take(10).foreach { println }
+      .take(10).foreach { logger.debug }
 
     sft2RecordScanner.setRanges(Seq(new org.apache.accumulo.core.data.Range()))
-    sft2RecordScanner.iterator.take(10).foreach { e => println(s"Record Key: ${e.getKey}") }
+    sft2RecordScanner.iterator.take(10).foreach { e => logger.debug(s"Record Key: ${e.getKey}") }
 
     s"result in FeatureStore named ${sft2.getTypeName} being gone" >> {
       ds.getNames.contains(sft2.getTypeName) must beFalse

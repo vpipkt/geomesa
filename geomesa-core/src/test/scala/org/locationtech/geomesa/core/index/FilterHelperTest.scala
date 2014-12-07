@@ -122,7 +122,7 @@ class FilterHelperTest extends Specification with Logging {
 
         val extractedInterval = extractDT(Seq(filter))
         val expectedInterval = new Interval(start, end)
-        println(s"Extracted interval $extractedInterval from filter ${ECQL.toCQL(filter)}")
+        logger.debug(s"Extracted interval $extractedInterval from filter ${ECQL.toCQL(filter)}")
         extractedInterval must equalTo(expectedInterval)
       }
     }
@@ -143,7 +143,7 @@ class FilterHelperTest extends Specification with Logging {
         val extractedMixed2Interval = extractDT(mixedFilters2)
 
         val expectedInterval = interval(t1).overlap(interval(t2))
-        println(s"Extracted interval $extractedBetweenInterval from filters ${betweenFilters.map(ECQL.toCQL)}")
+        logger.debug(s"Extracted interval $extractedBetweenInterval from filters ${betweenFilters.map(ECQL.toCQL)}")
         extractedBetweenInterval must equalTo(expectedInterval)
         extractedDuringInterval must equalTo(expectedInterval)
         extractedMixed1Interval must equalTo(expectedInterval)

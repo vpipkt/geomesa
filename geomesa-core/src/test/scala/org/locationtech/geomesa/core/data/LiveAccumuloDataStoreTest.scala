@@ -16,6 +16,7 @@
 
 package org.locationtech.geomesa.core.data
 
+import org.apache.log4j.Logger
 import org.geotools.data._
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.simple.SimpleFeatureIterator
@@ -36,6 +37,7 @@ class LiveAccumuloDataStoreTest extends Specification {
 
   sequential
 
+  val logger = Logger.getLogger(classOf[LiveAccumuloDataStoreTest])
   /**
    * WARNING: this test runs against a live accumulo instance and drops the table you run against
    */
@@ -102,7 +104,7 @@ class LiveAccumuloDataStoreTest extends Specification {
 
       def next = features.next.getProperty("name").getValue.toString
     }
-    println(resultItr.toList + "\n")
+    logger.debug(resultItr.toList + "\n")
   }
 
   "AccumuloDataStore" should {

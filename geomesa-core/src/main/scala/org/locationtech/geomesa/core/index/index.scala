@@ -134,5 +134,9 @@ package object index {
       logger.trace(s)
     }
   }
+
+  object ExplainLogging extends ExplainerOutputType with ExplainingLogging {
+    override def apply(v1: String): Unit = log(v1)
+  }
 }
 

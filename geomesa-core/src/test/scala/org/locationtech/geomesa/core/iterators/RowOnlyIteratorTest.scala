@@ -18,6 +18,7 @@ package org.locationtech.geomesa.core.iterators
 
 import java.nio.ByteBuffer
 
+import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.data.{Key, Range, Value}
 import org.apache.accumulo.core.security.Authorizations
 import org.junit.{Before, Test}
@@ -27,7 +28,8 @@ import scala.collection.JavaConverters._
 
 
 class RowOnlyIteratorTest
-    extends AbstractIteratorTest {
+  extends AbstractIteratorTest
+  with Logging {
   @Before
   def setup() {
     val rows = Seq("dqb6b46", "dqb6b40", "dqb6b43")
@@ -54,7 +56,7 @@ class RowOnlyIteratorTest
     scanner.setRange(new Range)
     RowOnlyIterator.setupRowOnlyIterator(scanner, 1000)
     scanner.asScala.foreach(entry => {
-      System.out.println(entry.getKey + " " + ByteBuffer.wrap(entry.getValue.get).getDouble)
+      logger.debug(entry.getKey + " " + ByteBuffer.wrap(entry.getValue.get).getDouble)
     })
   }
 
@@ -63,7 +65,7 @@ class RowOnlyIteratorTest
     val scanner = conn.createScanner(TEST_TABLE_NAME, new Authorizations)
     scanner.setRange(new Range)
     scanner.asScala.foreach(entry => {
-      System.out.println(entry.getKey + " " + ByteBuffer.wrap(entry.getValue.get).getDouble)
+      logger.debug(entry.getKey + " " + ByteBuffer.wrap(entry.getValue.get).getDouble)
     })
   }
 }

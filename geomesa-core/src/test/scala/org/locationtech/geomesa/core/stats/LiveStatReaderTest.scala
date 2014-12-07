@@ -18,6 +18,7 @@ package org.locationtech.geomesa.core.stats
 
 import java.util.Date
 
+import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.ZooKeeperInstance
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.accumulo.core.security.Authorizations
@@ -26,7 +27,7 @@ import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
 @RunWith(classOf[JUnitRunner])
-class LiveStatReaderTest extends Specification {
+class LiveStatReaderTest extends Specification with Logging {
 
   sequential
 
@@ -46,7 +47,7 @@ class LiveStatReaderTest extends Specification {
 
       val results = reader.query(feature, new Date(0), new Date(), new Authorizations())
 
-      results.foreach(println)
+      results.foreach(logger.debug)
 
       success
     }

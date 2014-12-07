@@ -24,6 +24,7 @@ import org.apache.accumulo.core.client.mock.MockInstance
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.accumulo.core.data.{Range => AccRange}
 import org.apache.accumulo.core.security.Authorizations
+import org.apache.log4j.Logger
 import org.geotools.data._
 import org.geotools.factory.Hints
 import org.geotools.feature.DefaultFeatureCollection
@@ -46,6 +47,7 @@ import scala.collection.JavaConverters._
 @RunWith(classOf[JUnitRunner])
 class AttributeIndexStrategyTest extends Specification {
 
+  val logger = Logger.getLogger(classOf[AttributeIndexStrategyTest])
   val sftName = "AttributeIndexStrategyTest"
   val spec = "name:String:index=true,age:Integer:index=true,count:Long:index=true," +
       "weight:Double:index=true,height:Float:index=true,admin:Boolean:index=true," +
@@ -121,7 +123,7 @@ class AttributeIndexStrategyTest extends Specification {
       val prefix = AttributeTable.getAttributeIndexRowPrefix(index.getTableSharingPrefix(sft),
         sft.getDescriptor("fingers"))
       scanner.setRange(AccRange.prefix(prefix))
-      scanner.asScala.foreach(println)
+      scanner.asScala.foreach(logger.debug)
       println
       success
     }

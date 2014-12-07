@@ -20,6 +20,7 @@ import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.UUID
 
+import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.{Point, Polygon}
 import org.apache.avro.io.{BinaryEncoder, EncoderFactory}
 import org.geotools.filter.identity.FeatureIdImpl
@@ -32,7 +33,7 @@ import scala.util.Random
 /*
  * Run with -Xms1024m -Xmx6000m -XX:MaxPermSize=1g to avoid GC issues
  */
-object SerializationTester {
+object SerializationTester extends Logging {
 
   def main(args: Array[String]) = {
 
@@ -100,9 +101,9 @@ object SerializationTester {
     val ones = time(100, one)
     val twos = time(100, two)
 
-    println("1: " + ones)
-    println("2: " + twos)
-    println("r: " + ones/twos)
+    logger.debug("1: " + ones)
+    logger.debug("2: " + twos)
+    logger.debug("r: " + ones/twos)
 
   }
 }

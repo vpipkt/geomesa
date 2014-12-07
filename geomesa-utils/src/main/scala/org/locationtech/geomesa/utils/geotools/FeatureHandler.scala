@@ -18,6 +18,7 @@ package org.locationtech.geomesa.utils.geotools
 
 import java.io.{BufferedWriter, File, FileWriter}
 
+import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.Geometry
 import org.geotools.data.{Base64, DataUtilities}
 import org.geotools.feature.FeatureIterator
@@ -27,13 +28,7 @@ import org.opengis.filter.identity.FeatureId
 
 import scala.collection.mutable.ListBuffer
 
-/**
- * Created with IntelliJ IDEA.
- * User: jnh5y
- * Date: 2/8/13
- * Time: 4:50 PM
- */
-object FeatureHandler {
+object FeatureHandler extends Logging {
   val OUTPUT_FIELD_SEPARATOR : String = "|"
   val OUTPUT_FIELD_SEPARATOR_CHAR : Char = OUTPUT_FIELD_SEPARATOR.charAt(0)
 
@@ -68,7 +63,7 @@ object FeatureHandler {
         }
       } catch {
         //@TODO this would be a good place for logging
-        case e:Exception => System.err.println("[WARNING] Problem reading geometry or attributes from Shapefile.\n  " +
+        case e:Exception => logger.warn("[WARNING] Problem reading geometry or attributes from Shapefile.\n  " +
           "Geometry:  " + sf.getDefaultGeometry + "\n  Attributes:  " + sf.getAttributes)
       }
     }
