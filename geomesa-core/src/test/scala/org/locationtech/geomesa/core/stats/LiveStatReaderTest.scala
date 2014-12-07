@@ -47,7 +47,7 @@ class LiveStatReaderTest extends Specification with Logging {
 
       val results = reader.query(feature, new Date(0), new Date(), new Authorizations())
 
-      results.foreach(logger.debug)
+      results.foreach( r => logger.debug(r.toString) )
 
       success
     }

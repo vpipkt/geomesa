@@ -64,9 +64,6 @@
         <dist.geoserver.lib>geoserver/WEB-INF/lib</dist.geoserver.lib>
         <dist.dev>dev</dist.dev>
 
-        <!-- testing properties -->
-        <maven.test.jvmargs>-Xms1g -Xmx2g -XX:MaxPermSize=1024m -XX:-UseGCOverheadLimit</maven.test.jvmargs>
-        <fork.mode>once</fork.mode>
         <avro.version>1.7.5</avro.version>
         <accumuloSuffix>accumulo1.5</accumuloSuffix>
     </properties>
@@ -75,7 +72,7 @@
         <profile>
             <id>debug-tests</id>
             <properties>
-                <maven.test.jvmargs>-Xms1g -Xmx2g -XX:MaxPermSize=1024m -XX:-UseGCOverheadLimit -Xrunjdwp:transport=dt_socket,address=5000,server=y,suspend=y</maven.test.jvmargs>
+                <maven.test.jvmargs>-Xms1g -Xmx2g -XX:-UseGCOverheadLimit -Xrunjdwp:transport=dt_socket,address=5000,server=y,suspend=y</maven.test.jvmargs>
             </properties>
         </profile>
         <profile>
@@ -896,7 +893,6 @@
                     <jvmArgs>
                         <jvmArg>-Xms1024m</jvmArg>
                         <jvmArg>-Xmx4096m</jvmArg>
-                        <jvmArg>-XX:MaxPermSize=1024m</jvmArg>
                     </jvmArgs>
                     <args>
                         <arg>-nowarn</arg>
@@ -911,11 +907,14 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.17</version>
                 <configuration>
-                    <forkMode>${fork.mode}</forkMode>
+                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <forkCount>0</forkCount>
+                    <reuseForks>false</reuseForks>
+                    <parallelOptimized>false</parallelOptimized>
                     <includes>
                         <include>**/*Test.java</include>
                     </includes>
-                    <argLine>${maven.test.jvmargs}</argLine>
+                    <argLine>-Xms1g -Xmx2g -XX:-UseGCOverheadLimit</argLine>
                 </configuration>
             </plugin>
             <plugin>

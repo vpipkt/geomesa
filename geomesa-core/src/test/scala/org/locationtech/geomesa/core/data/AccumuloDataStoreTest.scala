@@ -19,6 +19,7 @@ package org.locationtech.geomesa.core.data
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.Coordinate
 import org.apache.accumulo.core.client.mock.MockInstance
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
@@ -60,7 +61,9 @@ import scala.collection.JavaConversions._
 import scala.util.Random
 
 @RunWith(classOf[JUnitRunner])
-class AccumuloDataStoreTest extends Specification {
+class AccumuloDataStoreTest
+  extends Specification
+  with Logging {
 
   sequential
 
@@ -71,7 +74,6 @@ class AccumuloDataStoreTest extends Specification {
   val featureFactory = CommonFactoryFinder.getFeatureFactory(hints)
   val WGS84 = DefaultGeographicCRS.WGS84
   val gf = JTSFactoryFinder.getGeometryFactory
-  val logger = Logger.getLogger(classOf[AccumuloDataStoreTest])
 
   "AccumuloDataStore" should {
     "create a data store" >> {

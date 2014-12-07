@@ -121,7 +121,7 @@ package object index {
   }
 
   class ExplainString extends ExplainerOutputType {
-    private var string: StringBuilder = new StringBuilder()
+    private val string: StringBuilder = new StringBuilder()
     override def apply(v1: => String) = {
       string.append(v1).append('\n')
     }
@@ -136,7 +136,7 @@ package object index {
   }
 
   object ExplainLogging extends ExplainerOutputType with ExplainingLogging {
-    override def apply(v1: String): Unit = log(v1)
+    override def apply(v1: => String): Unit = log(v1)
   }
 }
 
