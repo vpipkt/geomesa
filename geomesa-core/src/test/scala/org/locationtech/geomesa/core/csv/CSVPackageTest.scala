@@ -34,9 +34,11 @@ class CSVPackageTest
   extends Specification
           with Logging {
 
+  sequential
+
   "guessTypes" should {
     def getSchema(name: String, csv: String) =
-      Await.result(guessTypes(name, new StringReader(csv)), Duration(1, MINUTES)).schema
+      Await.result(guessTypes(name, new StringReader(csv)), Duration(1, MINUTES)).get.schema
 
     "recognize int-parsable columns" >> {
       val csv = "int\n1"
@@ -88,16 +90,12 @@ class CSVPackageTest
     val geomCSV = s"$geomCSVHeader\n$geomCSVBody"
 
     "parse CSVs using WKTs" >> {
-      val fc = buildFeatureCollection(new StringReader(geomCSV), true, geomSFT, None).
-               recover {case ex => logger.error("failed to parse", ex); throw ex }.
-               get
+      val fc = buildFeatureCollectionGeneric(new StringReader(geomCSV), hasHeader = true, geomSFT, Option.empty[(String, String)])
       fc.size mustEqual geomCSVLines.size
     }
 
     "parse CSVs without headers" >> {
-      val fc = buildFeatureCollection(new StringReader(geomCSVBody), false, geomSFT, None).
-               recover {case ex => logger.error("failed to parse", ex); throw ex }.
-               get
+      val fc = buildFeatureCollectionGeneric(new StringReader(geomCSVBody), hasHeader = false, geomSFT, Option.empty[(String, String)])
       fc.size mustEqual geomCSVLines.size
     }
 
@@ -115,9 +113,7 @@ class CSVPackageTest
     val latlonCSV = s"$latlonCSVHeader\n$latlonCSVBody"
 
     "parse CSVs using LatLon" >> {
-      val fc = buildFeatureCollection(new StringReader(latlonCSV), true, latlonSFT, Some(("lat","lon"))).
-               recover {case ex => logger.error("failed to parse", ex); throw ex }.
-               get
+      val fc = buildFeatureCollectionGeneric(new StringReader(latlonCSV), hasHeader = true, latlonSFT, Some(("lat","lon")))
       fc.size mustEqual latlonCSVLines.size
     }
   }
