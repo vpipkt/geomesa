@@ -9,7 +9,8 @@ import org.apache.hadoop.io.Text
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.joda.time.{DateTime, DateTimeZone}
 import org.locationtech.geomesa.core._
-import org.locationtech.geomesa.core.data.{DATA_CQ, SimpleFeatureEncoder}
+import org.locationtech.geomesa.core.data.SimpleFeatureEncoder
+import org.locationtech.geomesa.core.data.tables.SpatioTemporalTable
 import org.locationtech.geomesa.utils.geohash.{GeoHash, GeohashUtils}
 import org.locationtech.geomesa.utils.text.WKBUtils
 import org.opengis.feature.simple.SimpleFeature
@@ -55,9 +56,10 @@ object IndexEntry {
     val encodedDtg = entry.dt.map(dtg => ByteBuffer.allocate(8).putLong(dtg.getMillis).array()).getOrElse(Array[Byte]())
 
     new Value(
-               ByteBuffer.allocate(4).putInt(encodedId.length).array() ++ encodedId ++
-               ByteBuffer.allocate(4).putInt(encodedGeom.length).array() ++ encodedGeom ++
-               encodedDtg)
+      ByteBuffer.allocate(4).putInt(encodedId.length).array() ++ encodedId ++
+      ByteBuffer.allocate(4).putInt(encodedGeom.length).array() ++ encodedGeom ++
+      encodedDtg
+    )
   }
 
   def decodeIndexValue(v: Value): DecodedIndexValue = {
@@ -109,28 +111,25 @@ case class IndexEntryEncoder(rowf: TextFormatter,
     val v = new Text(visibility)
     val dt = featureToEncode.dt.getOrElse(new DateTime()).withZone(timeZone)
 
-    // remember the resulting index-entries
-    val keys = geohashes.map { gh =>
-      val Array(r, cf, cq) = formats.map { _.format(gh, dt, featureToEncode) }
-      new Key(r, cf, cq, v)
-    }
-    val rowIDs = keys.map(_.getRow)
-    val id = new Text(featureToEncode.sid)
+    // data entries are stored separately (and independently) from the index entries
+    // data entries need to sort immediately after the corresponding index entry to facilitate scans
 
-    val indexValue = IndexEntry.encodeIndexValue(featureToEncode)
-    val iv = new Value(indexValue)
-    // the index entries are (key, FID) pairs
-    val indexEntries = keys.map { k => (k, iv) }
+    // base keys shared by the data and index values
+    val baseKeys = geohashes.map(gh => formats.map(_.format(gh, dt, featureToEncode)))
 
-    // the (single) data value is the encoded (serialized-to-string) SimpleFeature
+    // the index value is the encoded date/time/fid
+    val indexValue = new Value(IndexEntry.encodeIndexValue(featureToEncode))
+    // the data value is the encoded SimpleFeature
     val dataValue = new Value(featureEncoder.encode(featureToEncode))
 
-    // data entries are stored separately (and independently) from the index entries;
-    // each attribute gets its own data row (though currently, we use only one attribute
-    // that represents the entire, encoded feature)
-    val dataEntries = rowIDs.map { rowID =>
-      val key = new Key(rowID, id, DATA_CQ, v)
-      (key, dataValue)
+    // the entries are (key, value) pairs
+    val indexEntries = baseKeys.map { case Array(row, cf, cqBase) =>
+      val cq = new Text(cqBase.getBytes ++ SpatioTemporalTable.INDEX_CQ_SUFFIX)
+      (new Key(row, cf, cq, v), indexValue)
+    }
+    val dataEntries = baseKeys.map { case Array(row, cf, cqBase) =>
+      val cq = new Text(cqBase.getBytes ++ SpatioTemporalTable.DATA_CQ_SUFFIX)
+      (new Key(row, cf, cq, v), dataValue)
     }
 
     (indexEntries ++ dataEntries).toList

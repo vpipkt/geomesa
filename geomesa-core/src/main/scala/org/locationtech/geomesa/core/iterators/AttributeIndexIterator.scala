@@ -16,20 +16,12 @@
 
 package org.locationtech.geomesa.core.iterators
 
-import java.util.Date
-
 import com.typesafe.scalalogging.slf4j.Logging
-import com.vividsolutions.jts.geom._
 import org.apache.accumulo.core.data._
 import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
-import org.geotools.feature.simple.SimpleFeatureBuilder
-import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.core._
-import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.data.tables.AttributeTable._
 import org.locationtech.geomesa.core.index._
-import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.`type`.AttributeDescriptor
 
 import scala.util.{Failure, Success}
@@ -41,7 +33,13 @@ import scala.util.{Failure, Success}
  * This iterator returns as its nextKey the key for the index. nextValue is
  * the value for the INDEX, mapped into a SimpleFeature
  */
-class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Logging {
+class AttributeIndexIterator
+    extends SortedKeyValueIterator[Key, Value]
+    with WrappedFeatureBuilder
+    with WrappedFeatureDecoder
+    with WrappedSTFilter
+    with WrappedTransform
+    with Logging {
 
   var indexSource: SortedKeyValueIterator[Key, Value] = null
 
@@ -49,13 +47,8 @@ class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Log
   var topValue: Option[Value] = None
 
   // the following fields get filled in during init
-  var dtgFieldName: Option[String] = null
   var attributeRowPrefix: String = null
   var attributeType: Option[AttributeDescriptor] = null
-  var featureBuilder: SimpleFeatureBuilder = null
-  var featureEncoder: SimpleFeatureEncoder = null
-
-  var filterTest: (Geometry, Option[Long]) => Boolean = (_, _) => true
 
   override def init(source: SortedKeyValueIterator[Key, Value],
                     options: java.util.Map[String, String],
@@ -63,38 +56,15 @@ class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Log
 
     TServerClassLoader.initClassLoader(logger)
 
-    val simpleFeatureTypeSpec = options.get(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
+    initFeatureType(options)
+    initDecoder(featureType, options)
+    initSTFilter(featureType, options)
+    initTransform(featureType, options)
 
-    // we need the original SFT name in order to decode correctly due to table sharing
-    val featureType = SimpleFeatureTypes
-        .createType(options.get(GEOMESA_ITERATORS_SFT_NAME), simpleFeatureTypeSpec)
-    featureType.decodeUserData(options, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
-
-    dtgFieldName = getDtgFieldName(featureType)
     attributeRowPrefix = index.getTableSharingPrefix(featureType)
     // if we're retrieving the attribute, we need the class in order to decode it
     attributeType = Option(options.get(GEOMESA_ITERATORS_ATTRIBUTE_NAME))
         .flatMap(n => Option(featureType.getDescriptor(n)))
-
-    // default to text if not found for backwards compatibility
-    val encoding = Option(options.get(FEATURE_ENCODING)).getOrElse(FeatureEncoding.TEXT.toString)
-    featureEncoder = SimpleFeatureEncoder(featureType, encoding)
-
-    featureBuilder = AvroSimpleFeatureFactory.featureBuilder(featureType)
-
-    // combine the simpleFeatureFilteringIterator functionality so we only have to decode each row once
-    Option(options.get(DEFAULT_FILTER_PROPERTY_NAME)).foreach { filterString =>
-      val filter = ECQL.toFilter(filterString)
-
-      val sfb = new SimpleFeatureBuilder(featureType)
-      val testFeature = sfb.buildFeature("test")
-
-      filterTest = (geom: Geometry, odate: Option[Long]) => {
-        testFeature.setDefaultGeometry(geom)
-        dtgFieldName.foreach(dtgField => odate.foreach(date => testFeature.setAttribute(dtgField, new Date(date))))
-        filter.evaluate(testFeature)
-      }
-    }
 
     this.indexSource = source.deepCopy(env)
   }
@@ -136,30 +106,32 @@ class AttributeIndexIterator extends SortedKeyValueIterator[Key, Value] with Log
     while (topValue.isEmpty && indexSource.hasTop) {
 
       // the value contains the full-resolution geometry and time
-      val decodedValue = IndexEntry.decodeIndexValue(indexSource.getTopValue)
+      lazy val decodedValue = IndexEntry.decodeIndexValue(indexSource.getTopValue)
 
-      if (filterTest(decodedValue.geom, decodedValue.dtgMillis)) {
+      // evaluate the filter check
+      val meetsIndexFilters =
+          wrappedSTFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
+
+      if (meetsIndexFilters) {
         // current entry matches our filter - update the key and value
         // copy the key because reusing it is UNSAFE
         topKey = Some(new Key(indexSource.getTopKey))
-        // using the already decoded index value, generate a SimpleFeature
-        val sf = IndexIterator.encodeIndexValueToSF(featureBuilder,
-                                                    decodedValue.id,
-                                                    decodedValue.geom,
-                                                    decodedValue.dtgMillis)
+        val transformedFeature =
+          encodeIndexValueToSF(decodedValue.id, decodedValue.geom, decodedValue.dtgMillis)
 
         // if they requested the attribute value, decode it from the row key
         if (attributeType.isDefined) {
           val row = topKey.get.getRow.toString
           val decoded = decodeAttributeIndexRow(attributeRowPrefix, attributeType.get, row)
           decoded match {
-            case Success(att) => sf.setAttribute(att.attributeName, att.attributeValue)
+            case Success(att) => transformedFeature.setAttribute(att.attributeName, att.attributeValue)
             case Failure(e) => logger.error(s"Error decoding attribute row: row: $row, error: ${e.toString}")
           }
         }
 
         // set the encoded simple feature as the value
-        topValue = Some(new Value(featureEncoder.encode(sf)))
+        topValue = wrappedTransform.map(fn => new Value(fn(transformedFeature)))
+            .orElse(Some(new Value(featureEncoder.encode(transformedFeature))))
       }
 
       // increment the underlying iterator

@@ -17,7 +17,6 @@
 package org.locationtech.geomesa.core.iterators
 
 import com.typesafe.scalalogging.slf4j.Logging
-import org.apache.accumulo.core.client.IteratorSetting
 import org.apache.accumulo.core.data._
 import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
 import org.geotools.filter.text.ecql.ECQL
@@ -159,13 +158,4 @@ class SimpleFeatureFilteringIterator(other: SimpleFeatureFilteringIterator, env:
   }
 
   def deepCopy(env: IteratorEnvironment) = new SimpleFeatureFilteringIterator(this, env)
-}
-
-object SimpleFeatureFilteringIterator {
-
-  import org.locationtech.geomesa.core._
-
-  def setECQLFilter(cfg: IteratorSetting, ecql: String) {
-    cfg.addOption(GEOMESA_ITERATORS_ECQL_FILTER, ecql)
-  }
 }

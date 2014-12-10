@@ -55,23 +55,24 @@ trait Strategy {
     cfg.addOption(FEATURE_ENCODING, featureEncoding.toString)
   }
 
-  def configureFilter(cfg: IteratorSetting, filter: Option[Filter]) {
+  def configureFilter(cfg: IteratorSetting, filter: Option[Filter]) = {
     filter.foreach { f => cfg.addOption(DEFAULT_FILTER_PROPERTY_NAME, ECQL.toCQL(f)) }
   }
 
-  def configureFeatureType(cfg: IteratorSetting, featureType: SimpleFeatureType) {
+  def configureFeatureType(cfg: IteratorSetting, featureType: SimpleFeatureType) = {
     val encodedSimpleFeatureType = SimpleFeatureTypes.encodeType(featureType)
     cfg.addOption(GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE, encodedSimpleFeatureType)
     cfg.encodeUserData(featureType.getUserData, GEOMESA_ITERATORS_SIMPLE_FEATURE_TYPE)
   }
 
-  def configureFeatureTypeName(cfg: IteratorSetting, featureType: String) {
+  def configureFeatureTypeName(cfg: IteratorSetting, featureType: String) =
     cfg.addOption(GEOMESA_ITERATORS_SFT_NAME, featureType)
-  }
 
-  def configureAttributeName(cfg: IteratorSetting, attributeName: String) {
+  def configureAttributeName(cfg: IteratorSetting, attributeName: String) =
     cfg.addOption(GEOMESA_ITERATORS_ATTRIBUTE_NAME, attributeName)
-  }
+
+  def configureEcqlFilter(cfg: IteratorSetting, ecql: Option[String]) =
+    ecql.foreach(filter => cfg.addOption(GEOMESA_ITERATORS_ECQL_FILTER, filter))
 
   // returns the SimpleFeatureType for the query's transform
   def transformedSimpleFeatureType(query: Query): Option[SimpleFeatureType] = {
@@ -103,7 +104,7 @@ trait Strategy {
     configureFeatureEncoding(cfg, featureEncoding)
     configureTransforms(query,cfg)
     configureFeatureType(cfg, simpleFeatureType)
-    ecql.foreach(SimpleFeatureFilteringIterator.setECQLFilter(cfg, _))
+    configureEcqlFilter(cfg, ecql)
 
     cfg
   }
@@ -122,7 +123,7 @@ trait Strategy {
     } else None
   }
 
-  def getTopIterCfg(query: Query,
+  def getDensityIterCfg(query: Query,
                     geometryToCover: Geometry,
                     schema: String,
                     featureEncoding: FeatureEncoding,
@@ -145,8 +146,7 @@ trait Strategy {
       configureFeatureType(cfg, featureType)
 
       Some(cfg)
-    }
-    else if (query.getHints.containsKey(TEMPORAL_DENSITY_KEY)){
+    } else if (query.getHints.containsKey(TEMPORAL_DENSITY_KEY)) {
       val clazz = classOf[TemporalDensityIterator]
 
       val cfg = new IteratorSetting(iteratorPriority_AnalysisIterator,
@@ -162,6 +162,8 @@ trait Strategy {
       configureFeatureType(cfg, featureType)
 
       Some(cfg)
-    } else None
+    } else {
+      None
+    }
   }
 }

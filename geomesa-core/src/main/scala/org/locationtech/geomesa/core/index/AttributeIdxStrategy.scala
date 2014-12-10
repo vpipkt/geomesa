@@ -183,15 +183,6 @@ trait AttributeIdxStrategy extends Strategy with Logging {
                          opts: Map[String, String],
                          output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
 
-    if (opts.nonEmpty) {
-      // this handles geom or date filters at the attribute table level
-      val cfg = configureAttributeFilteringIterator(featureType, opts)
-      attrScanner.addScanIterator(cfg)
-
-      output(s"AttributeFilteringIterator: ${cfg.toString }")
-    }
-
-
     if (useSffi) {
       // we use the SFFI if there are additional filters or a transform, this has to happen on
       // the record table after the join as we don't have the data to evaluate the filter before that
@@ -220,11 +211,13 @@ trait AttributeIdxStrategy extends Strategy with Logging {
                                       query: Query,
                                       opts: Map[String, String],
                                       attributeName: String) = {
+    // TODO verify that ofilter is getting set correctly through the opts
     // the attribute index iterator also checks any ST filters
     val cfg = new IteratorSetting(iteratorPriority_AttributeIndexIterator,
                                   "attrIndexIterator",
                                   classOf[AttributeIndexIterator].getCanonicalName,
                                   opts)
+    // TODO we need to do the same check for a transform/filter as with IndexIterator
     val transformedType = query.getHints.get(TRANSFORM_SCHEMA).asInstanceOf[SimpleFeatureType]
     configureFeatureType(cfg, transformedType)
     configureFeatureTypeName(cfg, featureType.getTypeName)
@@ -239,15 +232,6 @@ trait AttributeIdxStrategy extends Strategy with Logging {
       "uniqueAttrIterator",
       classOf[UniqueAttributeIterator].getCanonicalName,
       opts)
-
-  private def configureAttributeFilteringIterator(featureType: SimpleFeatureType, opts: Map[String, String]) = {
-    val cfg = new IteratorSetting(iteratorPriority_AttributeIndexFilteringIterator,
-                                  "attrIndexFilter",
-                                  classOf[AttributeIndexFilteringIterator].getCanonicalName,
-                                  opts)
-    configureFeatureType(cfg, featureType)
-    cfg
-  }
 
   /**
    * Gets a row key that can used as a range for an attribute query.
