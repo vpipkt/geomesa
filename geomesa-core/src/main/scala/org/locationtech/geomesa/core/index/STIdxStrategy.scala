@@ -148,7 +148,7 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
                      featureEncoding: FeatureEncoding): IteratorSetting = {
     iteratorConfig.iterator match {
       case IndexOnlyIterator =>
-        configureIndexIterator(featureType, query, featureEncoding, stFilter, !iteratorConfig.useSFFI)
+        configureIndexIterator(featureType, query, featureEncoding, stFilter, iteratorConfig.transformCoversFilter)
       case SpatioTemporalIterator =>
         val isDensity = query.getHints.containsKey(DENSITY_KEY)
         configureSpatioTemporalIntersectingIterator(featureType, query, featureEncoding, stFilter, ecqlFilter, isDensity)
@@ -174,13 +174,13 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
       query: Query,
       featureEncoding: FeatureEncoding,
       filter: Option[Filter],
-      applyDirectTransform: Boolean): IteratorSetting = {
+      transformsCoverFilter: Boolean): IteratorSetting = {
 
     val cfg = new IteratorSetting(iteratorPriority_SpatioTemporalIterator,
       "within-" + randomPrintableString(5),classOf[IndexIterator])
 
-    configureFilter(cfg, filter)
-    if (applyDirectTransform) {
+    configureStFilter(cfg, filter)
+    if (transformsCoverFilter) {
       // apply the transform directly to the index iterator
       val testType = query.getHints.get(TRANSFORM_SCHEMA).asInstanceOf[SimpleFeatureType]
       configureFeatureType(cfg, testType)
@@ -188,7 +188,7 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
       // we need to evaluate the original feature before transforming
       // transforms are applied afterwards
       configureFeatureType(cfg, featureType)
-      configureTransforms(query, cfg)
+      configureTransforms(cfg, query)
     }
     configureFeatureEncoding(cfg, featureEncoding)
     cfg
@@ -207,10 +207,10 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
     val cfg = new IteratorSetting(iteratorPriority_SpatioTemporalIterator,
       "within-" + randomPrintableString(5),
       classOf[SpatioTemporalIntersectingIterator])
-    configureFilter(cfg, stFilter)
+    configureStFilter(cfg, stFilter)
     configureFeatureType(cfg, featureType)
     configureFeatureEncoding(cfg, featureEncoding)
-    configureTransforms(query, cfg)
+    configureTransforms(cfg, query)
     configureEcqlFilter(cfg, ecqlFilter)
     if (isDensity) cfg.addOption(GEOMESA_ITERATORS_IS_DENSITY_TYPE, "isDensity")
     cfg

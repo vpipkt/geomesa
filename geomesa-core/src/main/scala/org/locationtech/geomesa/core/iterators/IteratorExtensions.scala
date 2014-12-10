@@ -163,8 +163,8 @@ trait HasSpatioTemporalFilter extends IteratorExtensions {
   abstract override def init(featureType: SimpleFeatureType, options: OptionMap) = {
     super.init(featureType, options)
     dateAttributeName = getDtgFieldName(featureType)
-    if (options.containsKey(DEFAULT_FILTER_PROPERTY_NAME)) {
-      val filterString = options.get(DEFAULT_FILTER_PROPERTY_NAME)
+    if (options.containsKey(ST_FILTER_PROPERTY_NAME)) {
+      val filterString = options.get(ST_FILTER_PROPERTY_NAME)
       filterOption = Some(ECQL.toFilter(filterString))
       val sfb = new SimpleFeatureBuilder(featureType)
       testSimpleFeature = Some(sfb.buildFeature("test"))

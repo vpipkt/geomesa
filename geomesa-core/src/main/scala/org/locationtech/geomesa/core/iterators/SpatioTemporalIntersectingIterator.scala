@@ -25,8 +25,6 @@ import org.apache.hadoop.io.Text
 import org.locationtech.geomesa.core.data.tables.SpatioTemporalTable
 import org.locationtech.geomesa.core.index._
 
-case class Attribute(name: Text, value: Text)
-
 /**
  * Remember that we maintain two sources:  one for index records (that determines
  * whether the point is inside the search polygon), and one for data records (that
@@ -56,15 +54,14 @@ class SpatioTemporalIntersectingIterator
   var topValue: Option[Value] = None
   var source: SortedKeyValueIterator[Key, Value] = null
 
-  override def init(source: SortedKeyValueIterator[Key, Value],
-           options: java.util.Map[String, String],
-           env: IteratorEnvironment) {
+  override def init(
+      source: SortedKeyValueIterator[Key, Value],
+      options: java.util.Map[String, String],
+      env: IteratorEnvironment) = {
 
     TServerClassLoader.initClassLoader(logger)
-
     initFeatureType(options)
     init(featureType, options)
-
     this.source = source.deepCopy(env)
   }
 
@@ -74,22 +71,12 @@ class SpatioTemporalIntersectingIterator
 
   override def getTopValue = topValue.orNull
 
-  /**
-   * Seeks to the start of a range and fetches the top key/value
-   *
-   * @param range
-   * @param columnFamilies
-   * @param inclusive
-   */
   override def seek(range: Range, columnFamilies: java.util.Collection[ByteSequence], inclusive: Boolean) {
     // move the source iterator to the right starting spot
     source.seek(range, columnFamilies, inclusive)
     findTop()
   }
 
-  /**
-   * Reads the next qualifying key/value
-   */
   override def next() = findTop()
 
   /**
@@ -150,5 +137,5 @@ class SpatioTemporalIntersectingIterator
   }
 
   override def deepCopy(env: IteratorEnvironment) =
-    throw new UnsupportedOperationException("STII does not support deepCopy.")
+    throw new UnsupportedOperationException("SpatioTemporalIntersectingIterator does not support deepCopy")
 }

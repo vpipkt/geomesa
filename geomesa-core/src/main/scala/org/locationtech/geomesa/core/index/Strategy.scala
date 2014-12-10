@@ -55,8 +55,8 @@ trait Strategy {
     cfg.addOption(FEATURE_ENCODING, featureEncoding.toString)
   }
 
-  def configureFilter(cfg: IteratorSetting, filter: Option[Filter]) = {
-    filter.foreach { f => cfg.addOption(DEFAULT_FILTER_PROPERTY_NAME, ECQL.toCQL(f)) }
+  def configureStFilter(cfg: IteratorSetting, filter: Option[Filter]) = {
+    filter.foreach { f => cfg.addOption(ST_FILTER_PROPERTY_NAME, ECQL.toCQL(f)) }
   }
 
   def configureFeatureType(cfg: IteratorSetting, featureType: SimpleFeatureType) = {
@@ -80,7 +80,7 @@ trait Strategy {
   }
 
   // store transform information into an Iterator's settings
-  def configureTransforms(query:Query,cfg: IteratorSetting) =
+  def configureTransforms(cfg: IteratorSetting, query:Query) =
     for {
       transformOpt  <- Option(query.getHints.get(TRANSFORMS))
       transform     = transformOpt.asInstanceOf[String]
@@ -90,38 +90,26 @@ trait Strategy {
       _             = cfg.addOption(GEOMESA_ITERATORS_TRANSFORM_SCHEMA, encodedSFType)
     } yield Unit
 
-  // assumes that it receives an iterator over data-only entries, and aggregates
-  // the values into a map of attribute, value pairs
-  def configureSimpleFeatureFilteringIterator(simpleFeatureType: SimpleFeatureType,
-                                              ecql: Option[String],
-                                              schema: String,
-                                              featureEncoding: FeatureEncoding,
-                                              query: Query): IteratorSetting = {
-    val cfg = new IteratorSetting(iteratorPriority_SimpleFeatureFilteringIterator,
-      "sffilter-" + randomPrintableString(5),
-      classOf[SimpleFeatureFilteringIterator])
+  def configureRecordTableIterator(
+      simpleFeatureType: SimpleFeatureType,
+      featureEncoding: FeatureEncoding,
+      ecql: Option[Filter],
+      query: Query): IteratorSetting = {
 
-    configureFeatureEncoding(cfg, featureEncoding)
-    configureTransforms(query,cfg)
+    val cfg = new IteratorSetting(
+      iteratorPriority_SimpleFeatureFilteringIterator,
+      classOf[RecordTableIterator].getSimpleName,
+      classOf[RecordTableIterator]
+    )
     configureFeatureType(cfg, simpleFeatureType)
-    configureEcqlFilter(cfg, ecql)
-
+    configureFeatureEncoding(cfg, featureEncoding)
+    configureEcqlFilter(cfg, ecql.map(ECQL.toCQL))
+    configureTransforms(cfg, query)
     cfg
   }
 
   def randomPrintableString(length:Int=5) : String = (1 to length).
     map(i => Random.nextPrintableChar()).mkString
-
-  def getSFFIIterCfg(iteratorConfig: IteratorConfig,
-                     featureType: SimpleFeatureType,
-                     ecql: Option[String],
-                     schema: String,
-                     featureEncoding: FeatureEncoding,
-                     query: Query): Option[IteratorSetting] = {
-    if (iteratorConfig.useSFFI) {
-      Some(configureSimpleFeatureFilteringIterator(featureType, ecql, schema, featureEncoding, query))
-    } else None
-  }
 
   def getDensityIterCfg(query: Query,
                     geometryToCover: Geometry,
