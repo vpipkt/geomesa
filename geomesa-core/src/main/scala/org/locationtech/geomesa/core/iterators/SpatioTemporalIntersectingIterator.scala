@@ -42,13 +42,14 @@ case class Attribute(name: Text, value: Text)
  * data.  "hasNext" really means, "was there a next record that you already found".
  */
 class SpatioTemporalIntersectingIterator
-    extends SortedKeyValueIterator[Key, Value]
-    with WrappedFeatureType
-    with WrappedFeatureDecoder
-    with WrappedSTFilter
-    with WrappedEcqlFilter
-    with WrappedTransform
-    with InMemoryDeduplication
+    extends HasIteratorExtensions
+    with SortedKeyValueIterator[Key, Value]
+    with HasFeatureType
+    with HasFeatureDecoder
+    with HasSpatioTemporalFilter
+    with HasEcqlFilter
+    with HasTransforms
+    with HasInMemoryDeduplication
     with Logging {
 
   var topKey: Option[Key] = None
@@ -62,11 +63,7 @@ class SpatioTemporalIntersectingIterator
     TServerClassLoader.initClassLoader(logger)
 
     initFeatureType(options)
-    initDecoder(featureType, options)
-    initSTFilter(featureType, options)
-    initEcqlFilter(options)
-    initTransform(featureType, options)
-    initDeduplication(featureType, options)
+    init(featureType, options)
 
     this.source = source.deepCopy(env)
   }
@@ -116,7 +113,7 @@ class SpatioTemporalIntersectingIterator
 
         // evaluate the filter checks, in least to most expensive order
         val meetsIndexFilters = checkUniqueId.forall(fn => fn(decodedValue.id)) &&
-            wrappedSTFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
+            stFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
 
         if (meetsIndexFilters) { // we hit a valid geometry, date and id
           // we increment the source iterator, which should point to a data entry
@@ -126,13 +123,13 @@ class SpatioTemporalIntersectingIterator
             if (SpatioTemporalTable.isDataEntry(dataKey)) {
               val dataValue = source.getTopValue
               lazy val decodedFeature = featureDecoder.decode(dataValue)
-              val meetsEcqlFilter = wrappedEcqlFilter.forall(fn => fn(decodedFeature))
+              val meetsEcqlFilter = ecqlFilter.forall(fn => fn(decodedFeature))
               if (meetsEcqlFilter) {
                 // update the key and value
                 // copy the key because reusing it is UNSAFE
                 topKey = Some(new Key(dataKey))
                 // apply any transform here
-                topValue = wrappedTransform.map(fn => new Value(fn(decodedFeature)))
+                topValue = transform.map(fn => new Value(fn(decodedFeature)))
                     .orElse(Some(new Value(dataValue)))
               }
             } else {

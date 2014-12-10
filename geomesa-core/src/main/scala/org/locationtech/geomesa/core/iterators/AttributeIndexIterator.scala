@@ -34,11 +34,12 @@ import scala.util.{Failure, Success}
  * the value for the INDEX, mapped into a SimpleFeature
  */
 class AttributeIndexIterator
-    extends SortedKeyValueIterator[Key, Value]
-    with WrappedFeatureBuilder
-    with WrappedFeatureDecoder
-    with WrappedSTFilter
-    with WrappedTransform
+    extends HasIteratorExtensions
+    with SortedKeyValueIterator[Key, Value]
+    with HasFeatureBuilder
+    with HasFeatureDecoder
+    with HasSpatioTemporalFilter
+    with HasTransforms
     with Logging {
 
   var indexSource: SortedKeyValueIterator[Key, Value] = null
@@ -57,9 +58,7 @@ class AttributeIndexIterator
     TServerClassLoader.initClassLoader(logger)
 
     initFeatureType(options)
-    initDecoder(featureType, options)
-    initSTFilter(featureType, options)
-    initTransform(featureType, options)
+    init(featureType, options)
 
     attributeRowPrefix = index.getTableSharingPrefix(featureType)
     // if we're retrieving the attribute, we need the class in order to decode it
@@ -110,7 +109,7 @@ class AttributeIndexIterator
 
       // evaluate the filter check
       val meetsIndexFilters =
-          wrappedSTFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
+          stFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
 
       if (meetsIndexFilters) {
         // current entry matches our filter - update the key and value
@@ -130,7 +129,7 @@ class AttributeIndexIterator
         }
 
         // set the encoded simple feature as the value
-        topValue = wrappedTransform.map(fn => new Value(fn(transformedFeature)))
+        topValue = transform.map(fn => new Value(fn(transformedFeature)))
             .orElse(Some(new Value(featureEncoder.encode(transformedFeature))))
       }
 

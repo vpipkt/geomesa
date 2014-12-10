@@ -34,12 +34,13 @@ import org.locationtech.geomesa.core.index._
  * and hence never iterates through it.
  */
 class IndexIterator
-    extends SortedKeyValueIterator[Key, Value]
-    with WrappedFeatureBuilder
-    with WrappedSTFilter
-    with WrappedFeatureDecoder
-    with WrappedTransform
-    with InMemoryDeduplication
+    extends HasIteratorExtensions
+    with SortedKeyValueIterator[Key, Value]
+    with HasFeatureBuilder
+    with HasSpatioTemporalFilter
+    with HasFeatureDecoder
+    with HasTransforms
+    with HasInMemoryDeduplication
     with Logging {
 
   protected var topKey: Option[Key] = None
@@ -53,10 +54,7 @@ class IndexIterator
     TServerClassLoader.initClassLoader(logger)
 
     initFeatureType(options)
-    initDecoder(featureType, options)
-    initSTFilter(featureType, options)
-    initTransform(featureType, options)
-    initDeduplication(featureType, options)
+    init(featureType, options)
 
     this.source = source.deepCopy(env)
   }
@@ -105,7 +103,7 @@ class IndexIterator
 
         // evaluate the filter checks, in least to most expensive order
         val meetsIndexFilters = checkUniqueId.forall(fn => fn(decodedValue.id)) &&
-            wrappedSTFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
+            stFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
 
         if (meetsIndexFilters) { // we hit a valid geometry, date and id
           val transformedFeature =
@@ -113,7 +111,7 @@ class IndexIterator
           // update the key and value
           // copy the key because reusing it is UNSAFE
           topKey = Some(new Key(indexKey))
-          topValue = wrappedTransform.map(fn => new Value(fn(transformedFeature)))
+          topValue = transform.map(fn => new Value(fn(transformedFeature)))
               .orElse(Some(new Value(featureEncoder.encode(transformedFeature))))
         }
       }
