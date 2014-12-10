@@ -124,11 +124,11 @@ case class IndexEntryEncoder(rowf: TextFormatter,
 
     // the entries are (key, value) pairs
     val indexEntries = baseKeys.map { case Array(row, cf, cqBase) =>
-      val cq = new Text(cqBase.getBytes ++ SpatioTemporalTable.INDEX_CQ_SUFFIX)
+      val cq = new Text(cqBase.copyBytes() ++ SpatioTemporalTable.INDEX_CQ_SUFFIX)
       (new Key(row, cf, cq, v), indexValue)
     }
     val dataEntries = baseKeys.map { case Array(row, cf, cqBase) =>
-      val cq = new Text(cqBase.getBytes ++ SpatioTemporalTable.DATA_CQ_SUFFIX)
+      val cq = new Text(cqBase.copyBytes() ++ SpatioTemporalTable.DATA_CQ_SUFFIX)
       (new Key(row, cf, cq, v), dataValue)
     }
 
