@@ -233,7 +233,8 @@ class IteratorTriggerTest extends Specification {
 
     "be run when transforms don't overlap filters" in {
       val choice = TriggerTest.chooseIteratorTest(TriggerTest.spatialTemporalFilterString, TriggerTest.geomTransformToIndex)
-      choice.hasTransformOrFilter must beTrue
+      choice.iterator mustEqual IndexOnlyIterator
+      choice.transformCoversFilter must beFalse
     }
   }
 
