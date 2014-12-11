@@ -21,6 +21,9 @@ import java.util.UUID
 
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.ZooKeeperInstance
+import org.apache.commons.compress.compressors.bzip2.BZip2Utils
+import org.apache.commons.compress.compressors.gzip.GzipUtils
+import org.apache.commons.compress.compressors.xz.XZUtils
 import org.apache.hadoop.fs.Path
 
 import scala.util.{Failure, Success, Try}
@@ -62,15 +65,23 @@ object Utils {
     val GeoJson = "geojson"
     val GML     = "gml"
 
-    def getFileExtension(name: String) =
-      name match {
-        case _ if name.toLowerCase.endsWith(CSV)  => CSV
-        case _ if name.toLowerCase.endsWith(TSV)  => TSV
-        case _ if name.toLowerCase.endsWith(SHP)  => SHP
-        case _ if name.toLowerCase.endsWith(JSON) => JSON
-        case _ if name.toLowerCase.endsWith(GML)  => GML
-        case _                                    => "unknown"
+    def getFileExtension(name: String) = {
+      val modName = name match {
+        case _ if GzipUtils.isCompressedFilename(name)  => GzipUtils.getUncompressedFilename(name)
+        case _ if BZip2Utils.isCompressedFilename(name) => BZip2Utils.getUncompressedFilename(name)
+        case _ if XZUtils.isCompressedFilename(name)    => XZUtils.getUncompressedFilename(name)
+        case _ => name
       }
+
+      modName match {
+        case _ if name.toLowerCase.endsWith(CSV) => CSV
+        case _ if name.toLowerCase.endsWith(TSV) => TSV
+        case _ if name.toLowerCase.endsWith(SHP) => SHP
+        case _ if name.toLowerCase.endsWith(JSON) => JSON
+        case _ if name.toLowerCase.endsWith(GML) => GML
+        case _ => "unknown"
+      }
+    }
 
     val All = List(CSV, TSV, SHP, JSON, GeoJson, GML)
   }

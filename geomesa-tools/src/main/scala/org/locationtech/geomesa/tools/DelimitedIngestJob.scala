@@ -116,7 +116,7 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
 
   // Check to see if this an actual ingest job or just a test.
   if (!isTestRun) {
-    TextLine(path).using(new Resources)
+    new MultipleUsefulTextLineFiles(path).using(new Resources)
       .foreach('line) { (cres: Resources, line: String) => lineNumber += 1; ingestLine(cres.fw, line) }
   }
 
