@@ -21,6 +21,7 @@ import org.apache.accumulo.core.data._
 import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
 import org.locationtech.geomesa.core.data.tables.SpatioTemporalTable
 import org.locationtech.geomesa.core.index._
+import org.locationtech.geomesa.core.stats.{NoOpTimings, MethodProfiling, AutoLoggingTimings, Timings}
 
 /**
  * This is an Index Only Iterator, to be used in situations where the data records are
@@ -41,7 +42,11 @@ class IndexIterator
     with HasFeatureDecoder
     with HasTransforms
     with HasInMemoryDeduplication
+    with MethodProfiling
     with Logging {
+
+  // replace this with 'timings' to enable profile logging
+  import IndexIterator.noOpTimings
 
   protected var topKey: Option[Key] = None
   protected var topValue: Option[Value] = None
@@ -74,7 +79,7 @@ class IndexIterator
    */
   override def seek(range: Range, columnFamilies: java.util.Collection[ByteSequence], inclusive: Boolean) {
     // move the source iterator to the right starting spot
-    source.seek(range, columnFamilies, inclusive)
+    profile(source.seek(range, columnFamilies, inclusive), "source.seek")
     findTop()
   }
 
@@ -93,34 +98,39 @@ class IndexIterator
     topValue = None
 
     // loop while there is more data and we haven't matched our filter
-    while (topValue.isEmpty && source.hasTop) {
+    while (topValue.isEmpty && profile(source.hasTop, "source.hasTop")) {
 
-      val indexKey = source.getTopKey
+      val indexKey = profile(source.getTopKey, "source.getTopKey")
 
       if (SpatioTemporalTable.isIndexEntry(indexKey)) { // if this is a data entry, skip it
         // the value contains the full-resolution geometry and time plus feature ID
-        val decodedValue = IndexEntry.decodeIndexValue(source.getTopValue)
+        val decodedValue = profile(IndexEntry.decodeIndexValue(source.getTopValue), "decodeIndexValue")
 
         // evaluate the filter checks, in least to most expensive order
-        val meetsIndexFilters = checkUniqueId.forall(fn => fn(decodedValue.id)) &&
-            stFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis))
+        val meetsIndexFilters = profile(checkUniqueId.forall(fn => fn(decodedValue.id)), "checkUniqueId") &&
+            profile(stFilter.forall(fn => fn(decodedValue.geom, decodedValue.dtgMillis)), "stFilter")
 
         if (meetsIndexFilters) { // we hit a valid geometry, date and id
           val transformedFeature =
-            encodeIndexValueToSF(decodedValue.id, decodedValue.geom, decodedValue.dtgMillis)
+            profile(encodeIndexValueToSF(decodedValue.id, decodedValue.geom, decodedValue.dtgMillis), "encodeIndexValueToSF")
           // update the key and value
           // copy the key because reusing it is UNSAFE
-          topKey = Some(new Key(indexKey))
-          topValue = transform.map(fn => new Value(fn(transformedFeature)))
-              .orElse(Some(new Value(featureEncoder.encode(transformedFeature))))
+          topKey = Some(indexKey)
+          topValue = profile(transform.map(fn => new Value(fn(transformedFeature))), "transform")
+              .orElse(Some(new Value(profile(featureEncoder.encode(transformedFeature), "featureEncoder.encode"))))
         }
       }
 
       // increment the underlying iterator
-      source.next()
+      profile(source.next(), "source.next")
     }
   }
 
   override def deepCopy(env: IteratorEnvironment) =
     throw new UnsupportedOperationException("IndexIterator does not support deepCopy.")
+}
+
+object IndexIterator {
+  implicit val timings: Timings = new AutoLoggingTimings()
+  implicit val noOpTimings: Timings = new NoOpTimings()
 }
