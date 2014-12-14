@@ -19,7 +19,7 @@ import java.net.URLDecoder
 import java.nio.charset.Charset
 
 import com.google.common.hash.Hashing
-import com.twitter.scalding.{Args, Job}
+import com.twitter.scalding.{Args, Hdfs, Job, Local, Mode}
 import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.Coordinate
 import org.apache.commons.csv.{CSVFormat, CSVParser}
@@ -78,7 +78,7 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
   lazy val delim = format match {
     case s: String if s.toUpperCase == "TSV" => CSVFormat.TDF
     case s: String if s.toUpperCase == "CSV" => CSVFormat.DEFAULT
-    case _                       => throw new Exception("Error, no format set and/or unrecognized format provided")
+    case _  => throw new IllegalArgumentException("Error, no format set and/or unrecognized format provided")
   }
 
   lazy val sft = {
@@ -104,7 +104,14 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
   }
 
   def printStatInfo() {
-    logger.info(getStatInfo(successes, failures, "Ingestion finished, total features:"))
+    Mode.getMode(args) match {
+      case Some(Local(_)) =>
+        logger.info(getStatInfo(successes, failures, "Local ingest completed, total features:"))
+      case Some(Hdfs(_, _)) =>
+        logger.info("Ingest completed in HDFS mode")
+      case _ =>
+        logger.warn("Could not determine job mode")
+    }
   }
 
   def getStatInfo(successes: Int, failures: Int, pref: String): String = {
