@@ -22,7 +22,6 @@ import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import cascading.flow.FlowProcess
 import cascading.scheme.Scheme
-import cascading.tap.hadoop.Hfs
 import cascading.tap.local.FileTap
 import cascading.tap.{SinkMode, Tap}
 import cascading.tuple.{TupleEntryCollector, TupleEntryIterator}
@@ -32,42 +31,22 @@ import org.apache.commons.compress.compressors.gzip.GzipUtils
 import org.apache.commons.compress.compressors.xz.{XZCompressorInputStream, XZCompressorOutputStream, XZUtils}
 import org.locationtech.geomesa.tools.UsefulFileTap._
 
-import scala.util.control.Exception._
-
 class UsefulFileSource(path: String*) extends FixedPathSource(path: _*) {
 
-  // Hint to readers: LineRecordReader understands codecs...
-  override def createTap(readOrWrite: AccessMode)(implicit mode: Mode): Tap[_, _, _] = {
-    mode match {
-      // TODO support strict in Local
-      case Local(_) => {
-        new UsefulFileTap(localScheme, localPath, sinkMode)
-      }
-      case hdfsMode @ Hdfs(_, _) => readOrWrite match {
-        case Read => createHdfsReadTap(hdfsMode)
-        case Write => CastHfsTap(new Hfs(hdfsScheme, hdfsWritePath, sinkMode))
-      }
-      case _ => {
-        allCatch.opt(
-          TestTapFactory(this, hdfsScheme, sinkMode)).map {
-          _.createTap(readOrWrite) // these java types are invariant, so we cast here
-            .asInstanceOf[Tap[Any, Any, Any]]
-        }
-          .orElse {
-          allCatch.opt(
-            TestTapFactory(this, localScheme.getSourceFields, sinkMode)).map {
-            _.createTap(readOrWrite)
-              .asInstanceOf[Tap[Any, Any, Any]]
-          }
-        }.getOrElse(sys.error("Failed to create a tap for: " + toString))
-      }
-    }
-  }
+  // Hint+FYI: LineRecordReader understands codecs...so in hdfs mode
+  // we get gzip ingest for free but the local tap from scalding
+  // does not understand codecs so overriding this method gives us local
+  // ingest for gzip
+  override def createLocalTap(sinkMode: SinkMode): Tap[_, _, _] =
+    new UsefulFileTap(localScheme, localPath, sinkMode)
+
 }
 
 class UsefulFileTap(scheme: Scheme[Properties, InputStream, OutputStream, _, _],
                     path: String,
-                    sinkMode: SinkMode = SinkMode.KEEP) extends FileTap(scheme, path, sinkMode) {
+                    sinkMode: SinkMode = SinkMode.KEEP)
+  extends FileTap(scheme, path, sinkMode) {
+
   val codec =
     path match {
       case _ if GzipUtils.isCompressedFilename(path)  => GZ

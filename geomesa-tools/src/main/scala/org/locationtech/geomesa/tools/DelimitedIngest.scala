@@ -136,7 +136,7 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
 
 object DelimitedIngest {
   def encodeFileList(f: List[String]) =
-    f.map { s => Hex.encodeHexString(s.getBytes(StandardCharsets.UTF_8))}.mkString(" ")
+    f.map { s => Hex.encodeHexString(s.getBytes(StandardCharsets.UTF_8)) }.mkString(" ")
 
   def decodeFileList(s: String) =
     s.split(" ").map { s => new String(Hex.decodeHex(s.toCharArray)) }
