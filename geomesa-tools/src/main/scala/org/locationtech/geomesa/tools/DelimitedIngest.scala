@@ -17,13 +17,16 @@ package org.locationtech.geomesa.tools
 
 import java.io.File
 import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 import com.twitter.scalding.{Args, Hdfs, Local, Mode}
 import org.apache.accumulo.core.client.Connector
+import org.apache.commons.codec.binary.Hex
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.locationtech.geomesa.core.data.AccumuloDataStore
 import org.locationtech.geomesa.jobs.JobUtils
+import org.locationtech.geomesa.tools.DelimitedIngest._
 import org.locationtech.geomesa.tools.Utils.Formats._
 import org.locationtech.geomesa.tools.Utils.Modes._
 import org.locationtech.geomesa.tools.Utils.{IngestParams, Modes}
@@ -91,7 +94,7 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
     val singleArgs = List(classOf[DelimitedIngestJob].getCanonicalName, getModeFlag(params.files(0)))
 
     val requiredKvArgs: Map[String, String] = Map(
-      IngestParams.FILE_PATH         -> params.files.mkString("\u0000"),
+      IngestParams.FILE_PATH         -> encodeFileList(params.files.toList),
       IngestParams.SFT_SPEC          -> URLEncoder.encode(params.spec, "UTF-8"),
       IngestParams.CATALOG_TABLE     -> params.catalog,
       IngestParams.ZOOKEEPERS        -> Option(params.zookeepers).getOrElse(zookeepersProp),
@@ -129,4 +132,12 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
     val kvArgs = (requiredKvArgs ++ optionalKvArgs).flatMap { case (k,v) => List(s"--$k", v) }
     Args(singleArgs ++ kvArgs)
   }
+}
+
+object DelimitedIngest {
+  def encodeFileList(f: List[String]) =
+    f.map { s => Hex.encodeHexString(s.getBytes(StandardCharsets.UTF_8))}.mkString(" ")
+
+  def decodeFileList(s: String) =
+    s.split(" ").map { s => new String(Hex.decodeHex(s.toCharArray)) }
 }

@@ -19,7 +19,7 @@ import java.net.URLDecoder
 import java.nio.charset.Charset
 
 import com.google.common.hash.Hashing
-import com.twitter.scalding.{Args, Job, TextLine}
+import com.twitter.scalding.{Args, Job}
 import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.Coordinate
 import org.apache.commons.csv.{CSVFormat, CSVParser}
@@ -46,7 +46,7 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
   var successes             = 0
 
   lazy val idFields         = args.optional(IngestParams.ID_FIELDS).orNull
-  lazy val pathList         = args(IngestParams.FILE_PATH).split("\u0000")
+  lazy val pathList         = DelimitedIngest.decodeFileList(args(IngestParams.FILE_PATH))
   lazy val sftSpec          = URLDecoder.decode(args(IngestParams.SFT_SPEC), "UTF-8")
   lazy val colList          = args.optional(IngestParams.COLS).map(ColsParser.build)
   lazy val dtgField         = args.optional(IngestParams.DT_FIELD)
