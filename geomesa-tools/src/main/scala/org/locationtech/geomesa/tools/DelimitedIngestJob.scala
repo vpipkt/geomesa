@@ -46,7 +46,7 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
   var successes             = 0
 
   lazy val idFields         = args.optional(IngestParams.ID_FIELDS).orNull
-  lazy val path             = args(IngestParams.FILE_PATH)
+  lazy val pathList         = args(IngestParams.FILE_PATH).split("\u0000")
   lazy val sftSpec          = URLDecoder.decode(args(IngestParams.SFT_SPEC), "UTF-8")
   lazy val colList          = args.optional(IngestParams.COLS).map(ColsParser.build)
   lazy val dtgField         = args.optional(IngestParams.DT_FIELD)
@@ -116,7 +116,7 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
 
   // Check to see if this an actual ingest job or just a test.
   if (!isTestRun) {
-    new MultipleUsefulTextLineFiles(path).using(new Resources)
+    new MultipleUsefulTextLineFiles(pathList: _*).using(new Resources)
       .foreach('line) { (cres: Resources, line: String) => lineNumber += 1; ingestLine(cres.fw, line) }
   }
 
@@ -156,15 +156,16 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
 
   def ingestDataToFeature(line: String, feature: SimpleFeature) = Try {
     val reader = CSVParser.parse(line, delim)
-    val fields: List[String] = try {
-      val allFields = reader.getRecords.flatten.toList
-      if (colList.isDefined) colList.map(_.map(allFields(_))).get else allFields
-    } catch {
-      case e: Exception => throw new Exception(s"Commons CSV could not parse " +
-        s"line number: $lineNumber \n\t with value: $line")
-    } finally {
-      reader.close()
-    }
+    val fields: List[String] =
+      try {
+        val allFields = reader.getRecords.flatten.toList
+        if (colList.isDefined) colList.map(_.map(allFields(_))).get else allFields
+      } catch {
+        case e: Exception => throw new Exception(s"Commons CSV could not parse " +
+          s"line number: $lineNumber \n\t with value: $line")
+      } finally {
+        reader.close()
+      }
 
     val id = idBuilder(fields)
     feature.getIdentifier.asInstanceOf[FeatureIdImpl].setID(id)
