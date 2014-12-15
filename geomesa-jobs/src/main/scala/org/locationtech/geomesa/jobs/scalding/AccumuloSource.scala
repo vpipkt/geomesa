@@ -24,17 +24,17 @@ import cascading.tuple._
 import com.twitter.scalding._
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.mapred.{AccumuloInputFormat, AccumuloOutputFormat, InputFormatBase}
-import org.apache.accumulo.core.client.mapreduce.lib.util.ConfiguratorBase
+import org.apache.accumulo.core.client.mapreduce.lib.util.{ConfiguratorBase, InputConfigurator}
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.accumulo.core.client.{BatchWriterConfig, IteratorSetting, ZooKeeperInstance}
-import org.apache.accumulo.core.data.{Key, Mutation, Value, Range => acRange}
+import org.apache.accumulo.core.data.{Key, Mutation, Value, Range => AcRange}
 import org.apache.accumulo.core.security.Authorizations
 import org.apache.accumulo.core.util.{Pair => AcPair}
 import org.apache.hadoop.io.Text
 import org.apache.hadoop.mapred._
 import org.apache.log4j.Level
 
-import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
 import scala.util.{Failure, Success, Try}
 
 case class AccumuloSourceOptions(instance: String,
@@ -45,8 +45,8 @@ case class AccumuloSourceOptions(instance: String,
                                  output: AccumuloOutputOptions)
 
 case class AccumuloInputOptions(table: String,
-                                ranges: Option[Seq[acRange]] = None,
-                                columns: Option[Seq[AcPair[Text, Text]]] = None,
+                                ranges: Option[SerializedRanges] = None,
+                                columns: Option[Seq[SerializedColumn]] = None,
                                 iterators: Seq[IteratorSetting] = Seq.empty,
                                 authorizations: Authorizations = new Authorizations(),
                                 autoAdjustRanges: Option[Boolean] = None,
@@ -60,6 +60,49 @@ case class AccumuloOutputOptions(table: String,
                                  memory: Option[Long] = None,
                                  createTable: Boolean = false,
                                  logLevel: Option[Level] = None)
+
+case class SerializedRanges(val value: String)
+
+object SerializedRanges {
+
+  def apply(range: AcRange): SerializedRanges = apply(Seq(range))
+
+  def apply(ranges: Seq[AcRange]): SerializedRanges = {
+    // use the job conf serialization
+    val conf = new JobConf()
+    conf.clear()
+    InputConfigurator.setRanges(this.getClass, conf, ranges)
+    new SerializedRanges(conf.head.getValue)
+  }
+}
+
+object SerializedRangeSeq {
+
+  def unapply(value: SerializedRanges): Option[Seq[AcRange]] = {
+    // use the job conf serialization
+    val conf = new JobConf()
+    conf.clear()
+    InputConfigurator.setRanges(this.getClass, conf, Seq.empty[AcRange])
+    conf.set(conf.head.getKey, value.value)
+    Some(InputConfigurator.getRanges(this.getClass, conf))
+  }
+}
+
+case class SerializedColumn(value: String)
+
+object SerializedColumn {
+
+  import scala.collection.JavaConversions._
+
+  def apply(columns: Seq[AcPair[Text, Text]]): Seq[SerializedColumn] =
+    InputConfigurator.serializeColumns(columns).map(SerializedColumn(_))
+}
+
+object SerializedColumnSeq {
+
+  def unapply(values: Seq[String]): Option[Seq[AcPair[Text, Text]]] =
+    Some(InputConfigurator.deserializeFetchedColumns(values).toSeq)
+}
 
 case class AccumuloSource(options: AccumuloSourceOptions) extends Source with Mappable[(Key,Value)] {
 
@@ -174,6 +217,8 @@ class AccumuloCollector(flowProcess: FlowProcess[JobConf], tap: AccumuloTap)
 class AccumuloScheme(val options: AccumuloSourceOptions)
   extends AccScheme(new Fields("key", "value"), new Fields("mutation")) {
 
+  import scala.collection.JavaConversions._
+
   override def sourceConfInit(fp: FlowProcess[JobConf], tap: AccTap, conf: JobConf) {
     // this method may be called more than once so check to see if we've already configured
     if (!ConfiguratorBase.isConnectorInfoSet(classOf[AccumuloInputFormat], conf)) {
@@ -183,8 +228,8 @@ class AccumuloScheme(val options: AccumuloSourceOptions)
                                        new PasswordToken(options.password.getBytes()))
       InputFormatBase.setInputTableName(conf, options.input.table)
       InputFormatBase.setScanAuthorizations(conf, options.input.authorizations)
-      options.input.ranges.foreach(r => InputFormatBase.setRanges(conf, r.asJava))
-      options.input.columns.foreach(c => InputFormatBase.fetchColumns(conf, c.asJava))
+      options.input.ranges.foreach { case SerializedRangeSeq(ranges) => InputFormatBase.setRanges(conf, ranges) }
+      options.input.columns.foreach { case SerializedColumnSeq(cols) => InputFormatBase.fetchColumns(conf, cols) }
       options.input.iterators.foreach(InputFormatBase.addIterator(conf, _))
       options.input.autoAdjustRanges.foreach(InputFormatBase.setAutoAdjustRanges(conf, _))
       options.input.localIterators.foreach(InputFormatBase.setLocalIterators(conf, _))
@@ -199,9 +244,8 @@ class AccumuloScheme(val options: AccumuloSourceOptions)
   override def sinkConfInit(fp: FlowProcess[JobConf], tap: AccTap, conf: JobConf) {
     // this method may be called more than once so check to see if we've already configured
     if (!ConfiguratorBase.isConnectorInfoSet(classOf[AccumuloOutputFormat], conf)) {
-      AccumuloOutputFormat.setConnectorInfo(conf,
-                                            options.user,
-                                            new PasswordToken(options.password.getBytes()))
+      AccumuloOutputFormat.setConnectorInfo(
+        conf, options.user, new PasswordToken(options.password.getBytes()))
       AccumuloOutputFormat.setDefaultTableName(conf, options.output.table)
       AccumuloOutputFormat.setZooKeeperInstance(conf, options.instance, options.zooKeepers)
       val batchWriterConfig = new BatchWriterConfig()
