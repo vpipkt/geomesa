@@ -86,7 +86,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "1325409954,2013-07-17,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -102,7 +102,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "\"1325409954\",\"2013-07-17\",\"-90.368732\",\"35.3155\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -118,7 +118,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "\"1325409954\",2013-07-17\",\"-90.368732\",\"35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beAFailedTry
     }
@@ -128,7 +128,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "1325409954\t2013-07-17\t-90.368732\t35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -144,7 +144,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "\"1325409954\"\t\"2013-07-17\"\t\"-90.368732\"\t\"35.3155\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -161,7 +161,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "1325409954,1410199543000,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -178,7 +178,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "1325409954,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
       ingestTry must beASuccessfulTry
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
@@ -194,7 +194,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "1325409954\t-90.368732\t35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -209,7 +209,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "294908082,2013-07-17,POINT(-90.161852 32.39271)"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -223,7 +223,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "294908082\t2013-07-17\tPOINT(-90.161852 32.39271)"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -237,7 +237,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "294908082,2013-07-17,\"POLYGON((0 0, 0 10, 10 10, 0 0))\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -251,7 +251,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "294908082\t2013-07-17\tPOLYGON((0 0, 0 10, 10 10, 0 0))"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 
@@ -268,7 +268,7 @@ class DelimitedIngestJobTest extends Specification{
       val testString = "0000\tgeomesa user\t823543\tGeoMesa rules!\t2014/08/13 :06:06:06:\tPoint(-78.4 38.0)"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:String,username:String,userid:String,text:String,time:Date,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      val ingestTry = ingest.ingestDataToFeature(testString, f)
+      val ingestTry = Try(ingest.ingestDataToFeature(testString, f))
 
       ingestTry must beASuccessfulTry
 

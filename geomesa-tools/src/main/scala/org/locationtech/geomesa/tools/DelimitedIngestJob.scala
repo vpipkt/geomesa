@@ -34,9 +34,10 @@ import org.locationtech.geomesa.core.index.Constants
 import org.locationtech.geomesa.tools.Utils.IngestParams
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
+import org.locationtech.geomesa.core.data.AccumuloDataStoreFactory.{params => dsp}
 
-import scala.util.Try
 import scala.util.parsing.combinator.JavaTokenParsers
+import scala.util.{Failure, Success, Try}
 
 class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
   import scala.collection.JavaConversions._
@@ -57,28 +58,24 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
   lazy val format           = args(IngestParams.FORMAT)
   lazy val isTestRun        = args(IngestParams.IS_TEST_INGEST).toBoolean
   lazy val featureName      = args(IngestParams.FEATURE_NAME)
-  lazy val maxShard         = args.optional(IngestParams.SHARDS).map(_.toInt)
 
   //Data Store parameters
   lazy val dsConfig =
     Map(
-      "featureName"       -> featureName,
-      "maxShard"          -> maxShard,
-      "zookeepers"        -> args(IngestParams.ZOOKEEPERS),
-      "instanceId"        -> args(IngestParams.ACCUMULO_INSTANCE),
-      "tableName"         -> args(IngestParams.CATALOG_TABLE),
-      "user"              -> args(IngestParams.ACCUMULO_USER),
-      "password"          -> args(IngestParams.ACCUMULO_PASSWORD),
-      "auths"             -> args.optional(IngestParams.AUTHORIZATIONS),
-      "visibilities"      -> args.optional(IngestParams.VISIBILITIES),
-      "indexSchemaFormat" -> args.optional(IngestParams.INDEX_SCHEMA_FMT),
-      "useMock"           -> args.optional(IngestParams.ACCUMULO_MOCK)
+      dsp.zookeepersParam -> args(IngestParams.ZOOKEEPERS),
+      dsp.instanceIdParam -> args(IngestParams.ACCUMULO_INSTANCE),
+      dsp.tableNameParam  -> args(IngestParams.CATALOG_TABLE),
+      dsp.userParam       -> args(IngestParams.ACCUMULO_USER),
+      dsp.passwordParam   -> args(IngestParams.ACCUMULO_PASSWORD),
+      dsp.authsParam      -> args.optional(IngestParams.AUTHORIZATIONS),
+      dsp.visibilityParam -> args.optional(IngestParams.VISIBILITIES),
+      dsp.mockParam       -> args.optional(IngestParams.ACCUMULO_MOCK)
     ).collect{ case (key, Some(value)) => (key, value); case (key, value: String) => (key, value) }
 
   lazy val delim = format match {
-    case s: String if s.toUpperCase == "TSV" => CSVFormat.TDF
-    case s: String if s.toUpperCase == "CSV" => CSVFormat.DEFAULT
-    case _  => throw new IllegalArgumentException("Error, no format set and/or unrecognized format provided")
+    case _ if format.equalsIgnoreCase("tsv") => CSVFormat.TDF
+    case _ if format.equalsIgnoreCase("csv") => CSVFormat.DEFAULT
+    case _ => throw new IllegalArgumentException("Error, no format set and/or unrecognized format provided")
   }
 
   lazy val sft = {
@@ -127,41 +124,35 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
       .foreach('line) { (cres: Resources, line: String) => lineNumber += 1; ingestLine(cres.fw, line) }
   }
 
+  // TODO unit test class without having an internal helper method
   def runTestIngest(lines: Iterator[String]) = Try {
     val ds = DataStoreFinder.getDataStore(dsConfig).asInstanceOf[AccumuloDataStore]
     ds.createSchema(sft)
     val fw = ds.getFeatureWriterAppend(featureName, Transaction.AUTO_COMMIT)
-    lines.foreach( line => ingestLine(fw, line) )
-    fw.close()
-  }
-
-  def ingestLine(fw: FeatureWriter[SimpleFeatureType, SimpleFeature], line: String): Unit = {
-    val toWrite = fw.next
-    // add data from csv/tsv line to the feature
-    val addDataToFeature = ingestDataToFeature(line, toWrite)
-    // check if we have a success
-    val writeSuccess = for {
-      success <- addDataToFeature
-      write <- Try {
-        try { fw.write() }
-        catch {
-          case e: Exception => throw new Exception(s" longitude and latitudes out of valid" +
-            s" range or malformed data in line with value: $line")
-        }
-      }
-    } yield write
-    // if write was successful, update successes count and log status if needed
-    if (writeSuccess.isSuccess) {
-      successes += 1
-      if (lineNumber % 10000 == 0 && !isTestRun)
-        logger.info(getStatInfo(successes, failures, s"Ingest proceeding $line, on line number:"))
-    } else {
-      failures += 1
-      logger.info(s"Cannot ingest feature on line number: $lineNumber, due to: ${writeSuccess.failed.get.getMessage} ")
+    try {
+      lines.foreach { line => ingestLine(fw, line) }
+    } finally {
+      fw.close()
     }
   }
 
-  def ingestDataToFeature(line: String, feature: SimpleFeature) = Try {
+  def ingestLine(fw: FeatureWriter[SimpleFeatureType, SimpleFeature], line: String): Unit =
+    Try {
+      ingestDataToFeature(line, fw.next())
+      fw.write()
+    } match {
+      case Success(_) =>
+        successes += 1
+        if (lineNumber % 10000 == 0 && !isTestRun)
+          logger.info(getStatInfo(successes, failures, s"Ingest proceeding $line, on line number:"))
+
+      case Failure(ex) =>
+        failures += 1
+        logger.warn(s"Cannot ingest feature on line number: $lineNumber: ${ex.getMessage}")
+    }
+
+  // Populate the fields of a SimpleFeature with a line of CSV
+  def ingestDataToFeature(line: String, feature: SimpleFeature) = {
     val reader = CSVParser.parse(line, delim)
     val fields: List[String] =
       try {
@@ -185,8 +176,9 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
     dtBuilder.foreach { dateBuilder => addDateToFeature(line, fields, feature, dateBuilder) }
 
     // Support for point data method
-    val lon = lonField.map(feature.getAttribute).map(_.asInstanceOf[Double])
-    val lat = latField.map(feature.getAttribute).map(_.asInstanceOf[Double])
+    import org.locationtech.geomesa.utils.geotools.Conversions.RichSimpleFeature
+    val lon = lonField.map(feature.get[Double](_))
+    val lat = latField.map(feature.get[Double](_))
     (lon, lat) match {
       case (Some(x), Some(y)) => feature.setDefaultGeometry(geomFactory.createPoint(new Coordinate(x, y)))
       case _                  =>
@@ -195,8 +187,10 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
       throw new Exception(s"No valid geometry found for line number: $lineNumber,  With value of: $line")
   }
 
-  def addDateToFeature(line: String, fields: Seq[String], feature: SimpleFeature,
-                       dateBuilder: (AnyRef) => DateTime) {
+  def addDateToFeature(line: String,
+                       fields: Seq[String],
+                       feature: SimpleFeature,
+                       dateBuilder: (AnyRef) => DateTime) =
     try {
       val dtgFieldIndex = getAttributeIndexInLine(dtgField.get)
       val date = dateBuilder(fields(dtgFieldIndex)).toDate
@@ -205,7 +199,6 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
       case e: Exception => throw new Exception(s"Could not form Date object from field " +
         s"using dt-format: $dtgFmt, With line value of: $line")
     }
-  }
 
   def getAttributeIndexInLine(attribute: String) = attributes.indexOf(sft.getDescriptor(attribute))
 
