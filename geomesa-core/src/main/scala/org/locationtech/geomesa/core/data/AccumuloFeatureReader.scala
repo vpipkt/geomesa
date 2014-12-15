@@ -56,7 +56,8 @@ class AccumuloFeatureReader(dataStore: AccumuloDataStore,
                              QueryStatTransform.filterToString(query.getFilter),
                              QueryStatTransform.hintsToString(query.getHints),
                              timings.time("planning"),
-                             timings.time("scan"),
+                             // planning time gets added to scan time due to lazy val... Revisit in GEOMESA-408
+                             timings.time("scan") - timings.time("planning"),
                              timings.occurrences("scan").toInt)
         sw.writeStat(stat, dataStore.getQueriesTableName(sft))
       case _ => // do nothing
