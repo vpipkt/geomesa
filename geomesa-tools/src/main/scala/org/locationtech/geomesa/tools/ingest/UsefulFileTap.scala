@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.tools
+package org.locationtech.geomesa.tools.ingest
 
 import java.io.{FileInputStream, FileOutputStream, InputStream, OutputStream}
 import java.util.Properties
@@ -29,7 +29,6 @@ import com.twitter.scalding._
 import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream, BZip2CompressorOutputStream, BZip2Utils}
 import org.apache.commons.compress.compressors.gzip.GzipUtils
 import org.apache.commons.compress.compressors.xz.{XZCompressorInputStream, XZCompressorOutputStream, XZUtils}
-import org.locationtech.geomesa.tools.UsefulFileTap._
 
 class UsefulFileSource(path: String*) extends FixedPathSource(path: _*) {
 

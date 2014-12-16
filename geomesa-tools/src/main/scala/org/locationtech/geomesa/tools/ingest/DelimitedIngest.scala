@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.locationtech.geomesa.tools
+package org.locationtech.geomesa.tools.ingest
 
 import java.io.File
 import java.net.URLEncoder
@@ -26,11 +26,11 @@ import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.locationtech.geomesa.core.data.AccumuloDataStore
 import org.locationtech.geomesa.jobs.JobUtils
-import org.locationtech.geomesa.tools.DelimitedIngest._
 import org.locationtech.geomesa.tools.Utils.Formats._
 import org.locationtech.geomesa.tools.Utils.Modes._
 import org.locationtech.geomesa.tools.Utils.{IngestParams, Modes}
 import org.locationtech.geomesa.tools.commands.IngestCommand.IngestParameters
+import org.locationtech.geomesa.tools.{AccumuloProperties, FeatureCreator}
 
 import scala.collection.JavaConversions._
 
