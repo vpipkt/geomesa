@@ -29,6 +29,7 @@ import com.twitter.scalding._
 import org.apache.commons.compress.compressors.bzip2.{BZip2CompressorInputStream, BZip2CompressorOutputStream, BZip2Utils}
 import org.apache.commons.compress.compressors.gzip.GzipUtils
 import org.apache.commons.compress.compressors.xz.{XZCompressorInputStream, XZCompressorOutputStream, XZUtils}
+import org.locationtech.geomesa.tools.ingest.UsefulFileTap._
 
 class UsefulFileSource(path: String*) extends FixedPathSource(path: _*) {
 

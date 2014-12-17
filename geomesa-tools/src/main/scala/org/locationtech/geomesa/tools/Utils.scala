@@ -55,6 +55,7 @@ object Utils {
     val SFT_SPEC            = "geomesa.tools.feature.sftspec"
     val COLS                = "geomesa.tools.ingest.cols"
     val IS_TEST_INGEST      = "geomesa.tools.ingest.runIngest"
+    val LIST_DELIMITER      = "geomesa.tools.ingest.delimiter.list"
   }
 
   object Formats {

@@ -22,7 +22,7 @@ import org.geotools.filter.identity.FeatureIdImpl
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.feature.AvroSimpleFeature
 import org.locationtech.geomesa.tools.Utils.IngestParams
-import org.locationtech.geomesa.tools.ingest.DelimitedIngestJob
+import org.locationtech.geomesa.tools.ingest.{ColsParser, ScaldingDelimitedIngestJob}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -31,7 +31,7 @@ import scala.io.Source
 import scala.util.Try
 
 @RunWith(classOf[JUnitRunner])
-class DelimitedIngestJobTest extends Specification{
+class ScaldingDelimitedIngestJobTest extends Specification{
   sequential
   var id = 0
 
@@ -55,7 +55,8 @@ class DelimitedIngestJobTest extends Specification{
       IngestParams.ACCUMULO_USER -> List("myuser"),
       IngestParams.ACCUMULO_PASSWORD -> List("mypassword"),
       IngestParams.ACCUMULO_MOCK -> List("true"),
-      IngestParams.IS_TEST_INGEST -> List("true"))
+      IngestParams.IS_TEST_INGEST -> List("true"),
+      IngestParams.LIST_DELIMITER -> List(","))
   }
 
   def csvWktParams: Map[String, List[String]] = {
@@ -76,14 +77,15 @@ class DelimitedIngestJobTest extends Specification{
       IngestParams.ACCUMULO_USER -> List("myuser"),
       IngestParams.ACCUMULO_PASSWORD -> List("mypassword"),
       IngestParams.ACCUMULO_MOCK -> List("true"),
-      IngestParams.IS_TEST_INGEST -> List("true"))
+      IngestParams.IS_TEST_INGEST -> List("true"),
+      IngestParams.LIST_DELIMITER -> List(","))
   }
 
   def currentCatalog = f"DelimitedIngestTestTableUnique$id%d"
 
   "DelimitedIngest" should {
     "properly add attributes to an AvroSimpleFeature from a comma-delimited string" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams))
       val testString = "1325409954,2013-07-17,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -99,7 +101,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a comma-delimited string with quote wrapped fields" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams))
       val testString = "\"1325409954\",\"2013-07-17\",\"-90.368732\",\"35.3155\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -115,7 +117,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly fail to add attributes to an AvroSimpleFeature from a comma-delimited string with mangled quote wrapped fields" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams))
       val testString = "\"1325409954\",2013-07-17\",\"-90.368732\",\"35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -125,7 +127,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a tab-delimited string" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "1325409954\t2013-07-17\t-90.368732\t35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -141,7 +143,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a tab-delimited string with quote wrapped fields" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "\"1325409954\"\t\"2013-07-17\"\t\"-90.368732\"\t\"35.3155\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -157,7 +159,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a comma-delimited string with a unix (milliseconds) datetime field" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FIELD, List("time"))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FIELD, List("time"))
         .updated(IngestParams.DT_FORMAT, List.empty)))
       val testString = "1325409954,1410199543000,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
@@ -174,7 +176,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a comma-delimited string with no date time field or format" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
         .updated(IngestParams.DT_FIELD, List.empty)))
       val testString = "1325409954,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326")
@@ -189,7 +191,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a tab-delimited string with no date time field or format" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
         .updated(IngestParams.DT_FIELD, List.empty)
         .updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "1325409954\t-90.368732\t35.3155"
@@ -206,7 +208,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a comma-delimited string with a Point WKT geometry" in {
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams))
       val testString = "294908082,2013-07-17,POINT(-90.161852 32.39271)"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -220,7 +222,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a tab-delimited string with a Point WKT geometry" in {
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "294908082\t2013-07-17\tPOINT(-90.161852 32.39271)"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -234,7 +236,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a comma-delimited string with a Polygon WKT geometry" in {
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams))
       val testString = "294908082,2013-07-17,\"POLYGON((0 0, 0 10, 10 10, 0 0))\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -248,7 +250,7 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly add attributes to an AvroSimpleFeature from a tab-delimited string with a Polygon WKT geometry" in {
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
       val testString = "294908082\t2013-07-17\tPOLYGON((0 0, 0 10, 10 10, 0 0))"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
@@ -263,7 +265,7 @@ class DelimitedIngestJobTest extends Specification{
 
     "properly add attributes to an AvroSimpleFeature from a tab-delimited string with" +
       " a Point WKT geometry and non-standard dtformat" in {
-      val ingest = new DelimitedIngestJob(new Args(
+      val ingest = new ScaldingDelimitedIngestJob(new Args(
         csvNormParams.updated(IngestParams.DT_FORMAT, List("yyyy/MM/dd :HH:mm:ss:")).updated(IngestParams.FORMAT, List("TSV"))
         .updated(IngestParams.SFT_SPEC, List("fid:String,username:String,userid:String,text:String,time:Date,*geom:Point:srid=4326"))))
       val testString = "0000\tgeomesa user\t823543\tGeoMesa rules!\t2014/08/13 :06:06:06:\tPoint(-78.4 38.0)"
@@ -283,35 +285,35 @@ class DelimitedIngestJobTest extends Specification{
 
     "properly write the features from a valid CSV" in {
       val path = Runner.getClass.getResource("/test_valid.csv")
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams))
 
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
     }
 
     "properly write the features from a valid TSV" in {
       val path = Runner.getClass.getResource("/test_valid.tsv")
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.FORMAT, List("TSV"))))
 
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
     }
 
     "properly write the features from a valid CSV containing WKT geometries" in {
       val path = Runner.getClass.getResource("/test_valid_wkt.csv")
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams))
 
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
     }
 
     "properly write the features from a valid TSV containing WKT geometries" in {
       val path = Runner.getClass.getResource("/test_valid_wkt.tsv")
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.FORMAT, List("TSV"))))
 
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
     }
 
     "properly write the features from a valid CSV with no date/time" in {
       val path = Runner.getClass.getResource("/test_valid_nd.csv")
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
         .updated(IngestParams.DT_FIELD, List.empty)
         .updated(IngestParams.SFT_SPEC, List("fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326"))))
 
@@ -320,7 +322,7 @@ class DelimitedIngestJobTest extends Specification{
 
     "properly write the features from a valid TSV with no date/time" in {
       val path = Runner.getClass.getResource("/test_valid_nd.tsv")
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.DT_FORMAT, List.empty)
         .updated(IngestParams.DT_FIELD, List.empty).updated(IngestParams.FORMAT, List("TSV"))
         .updated(IngestParams.SFT_SPEC, List("fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326"))))
 
@@ -328,28 +330,28 @@ class DelimitedIngestJobTest extends Specification{
     }
 
     "properly create subset of column list" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams))
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams))
       val inputColsList1 = "0,1,3,7-9,12,13"
       val inputColsList2 = "0,3,1,3,1,7-9,12,13"
       val checkList = List(0,1,3,7,8,9,12,13)
 
-      val resultList1 = ingest.ColsParser.build(inputColsList1)
+      val resultList1 = ColsParser.build(inputColsList1)
       resultList1 mustEqual checkList
 
-      val resultList2 = ingest.ColsParser.build(inputColsList2)
+      val resultList2 = ColsParser.build(inputColsList2)
       resultList2 mustEqual checkList
     }
 
     "properly fail in creating subset of column list" in {
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams))
-      Try(ingest.ColsParser.build("1,3,-7,12,13")) must beFailedTry
-      Try(ingest.ColsParser.build("1,3,9-7,12,13")) must beFailedTry
-      Try(ingest.ColsParser.build("1,3,-7-9,12,13")) must beFailedTry
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams))
+      Try(ColsParser.build("1,3,-7,12,13")) must beFailedTry
+      Try(ColsParser.build("1,3,9-7,12,13")) must beFailedTry
+      Try(ColsParser.build("1,3,-7-9,12,13")) must beFailedTry
     }
 
     "properly write a subset of features from a valid CSV" in {
       val path = Runner.getClass.getResource("/test_valid.csv")
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.SFT_SPEC,
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.SFT_SPEC,
         List("time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")) ++ Map(IngestParams.COLS -> List("1-3"))))
 
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
@@ -357,7 +359,7 @@ class DelimitedIngestJobTest extends Specification{
 
     "properly write a subset of features from a valid TSV" in {
       val path = Runner.getClass.getResource("/test_valid.tsv")
-      val ingest = new DelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.SFT_SPEC,
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.SFT_SPEC,
         List("time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")).updated(IngestParams.FORMAT, List("TSV"))
         ++ Map(IngestParams.COLS -> List("1-3"))))
 
@@ -366,7 +368,7 @@ class DelimitedIngestJobTest extends Specification{
 
     "properly write the features from a valid CSV containing WKT geometries" in {
       val path = Runner.getClass.getResource("/test_valid_wkt.csv")
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.SFT_SPEC,
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.SFT_SPEC,
         List("time:Date,*geom:Point:srid=4326")) ++ Map(IngestParams.COLS -> List("1-2"))))
 
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
@@ -374,11 +376,25 @@ class DelimitedIngestJobTest extends Specification{
 
     "properly write the features from a valid TSV containing WKT geometries" in {
       val path = Runner.getClass.getResource("/test_valid_wkt.tsv")
-      val ingest = new DelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.SFT_SPEC,
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.SFT_SPEC,
         List("time:Date,*geom:Point:srid=4326")).updated(IngestParams.FORMAT, List("TSV"))
         ++ Map(IngestParams.COLS -> List("1-2"))))
 
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
+    }
+
+    "write a list" in {
+      val ingest = new ScaldingDelimitedIngestJob(new Args(csvWktParams.updated(IngestParams.SFT_SPEC,
+              List("name:String,foobar:List[String],*geom:Point:srid=4326")).updated(IngestParams.FORMAT, List("CSV"))))
+      val testString =
+        """
+          | "bob","a,b,c","POINT(1 1)"
+        """.stripMargin
+      val sft = SimpleFeatureTypes.createType("foobarlisttest", "name:String,foobar:List[Integer],*geom:Point:srid=4326")
+      val f = new AvroSimpleFeature(new FeatureIdImpl("foobarlisttest"), sft)
+      ingest.ingestDataToFeature(testString, f)
+
+      success
     }
   }
 }

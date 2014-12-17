@@ -25,6 +25,7 @@ import org.geotools.feature.simple.SimpleFeatureTypeBuilder
 import org.geotools.filter.identity.FeatureIdImpl
 import org.locationtech.geomesa.tools.DataStoreHelper
 import org.locationtech.geomesa.tools.commands.IngestCommand.IngestParameters
+import org.locationtech.geomesa.tools.ingest.ShpIngest._
 import org.locationtech.geomesa.utils.geotools.Conversions._
 import org.opengis.feature.simple.SimpleFeature
 

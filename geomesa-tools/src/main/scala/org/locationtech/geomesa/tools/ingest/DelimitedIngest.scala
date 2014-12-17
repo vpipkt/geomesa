@@ -30,6 +30,7 @@ import org.locationtech.geomesa.tools.Utils.Formats._
 import org.locationtech.geomesa.tools.Utils.Modes._
 import org.locationtech.geomesa.tools.Utils.{IngestParams, Modes}
 import org.locationtech.geomesa.tools.commands.IngestCommand.IngestParameters
+import org.locationtech.geomesa.tools.ingest.DelimitedIngest._
 import org.locationtech.geomesa.tools.{AccumuloProperties, FeatureCreator}
 
 import scala.collection.JavaConversions._
@@ -54,7 +55,7 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
     validateFileArgs(mode, params)
 
     val arguments = Mode.putMode(mode, getScaldingArgs())
-    val job = new DelimitedIngestJob(arguments)
+    val job = new ScaldingDelimitedIngestJob(arguments)
     val flow = job.buildFlow
 
     //block until job is completed.
@@ -86,12 +87,12 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
   def ingestJarSearchPath: Iterator[() => Seq[File]] =
     Iterator(() => JobUtils.getJarsFromEnvironment("GEOMESA_HOME"),
       () => JobUtils.getJarsFromEnvironment("ACCUMULO_HOME"),
-      () => JobUtils.getJarsFromClasspath(classOf[DelimitedIngestJob]),
+      () => JobUtils.getJarsFromClasspath(classOf[ScaldingDelimitedIngestJob]),
       () => JobUtils.getJarsFromClasspath(classOf[AccumuloDataStore]),
       () => JobUtils.getJarsFromClasspath(classOf[Connector]))
 
   def getScaldingArgs(): Args = {
-    val singleArgs = List(classOf[DelimitedIngestJob].getCanonicalName, getModeFlag(params.files(0)))
+    val singleArgs = List(classOf[ScaldingDelimitedIngestJob].getCanonicalName, getModeFlag(params.files(0)))
 
     val requiredKvArgs: Map[String, String] = Map(
       IngestParams.FILE_PATH         -> encodeFileList(params.files.toList),
@@ -118,7 +119,8 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
         IngestParams.AUTHORIZATIONS    -> Option(params.auths),
         IngestParams.VISIBILITIES      -> Option(params.visibilities),
         IngestParams.INDEX_SCHEMA_FMT  -> Option(params.indexSchema),
-        IngestParams.SHARDS            -> Option(params.numShards))
+        IngestParams.SHARDS            -> Option(params.numShards),
+        IngestParams.LIST_DELIMITER    -> Option(params.listDelimiter))
       .filter(p => p._2.nonEmpty)
       .map { case (k,o) => k -> o.get.toString }
       .toMap

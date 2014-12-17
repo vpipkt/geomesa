@@ -27,20 +27,21 @@ import org.geotools.data.{DataStoreFinder, FeatureWriter, Transaction}
 import org.geotools.factory.Hints
 import org.geotools.filter.identity.FeatureIdImpl
 import org.geotools.geometry.jts.JTSFactoryFinder
+import org.geotools.util.Converters
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import org.locationtech.geomesa.core.data.AccumuloDataStore
 import org.locationtech.geomesa.core.data.AccumuloDataStoreFactory.{params => dsp}
 import org.locationtech.geomesa.core.index.Constants
-import MultipleUsefulTextLineFiles
 import org.locationtech.geomesa.tools.Utils.IngestParams
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
+import org.opengis.feature.`type`.AttributeDescriptor
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.util.parsing.combinator.JavaTokenParsers
 import scala.util.{Failure, Success, Try}
 
-class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
+class ScaldingDelimitedIngestJob(args: Args) extends Job(args) with Logging {
   import scala.collection.JavaConversions._
 
   var lineNumber            = 0
@@ -59,18 +60,19 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
   lazy val format           = args(IngestParams.FORMAT)
   lazy val isTestRun        = args(IngestParams.IS_TEST_INGEST).toBoolean
   lazy val featureName      = args(IngestParams.FEATURE_NAME)
+  lazy val listDelimiter    = args(IngestParams.LIST_DELIMITER)
 
   //Data Store parameters
   lazy val dsConfig =
     Map(
-      dsp.zookeepersParam -> args(IngestParams.ZOOKEEPERS),
-      dsp.instanceIdParam -> args(IngestParams.ACCUMULO_INSTANCE),
-      dsp.tableNameParam  -> args(IngestParams.CATALOG_TABLE),
-      dsp.userParam       -> args(IngestParams.ACCUMULO_USER),
-      dsp.passwordParam   -> args(IngestParams.ACCUMULO_PASSWORD),
-      dsp.authsParam      -> args.optional(IngestParams.AUTHORIZATIONS),
-      dsp.visibilityParam -> args.optional(IngestParams.VISIBILITIES),
-      dsp.mockParam       -> args.optional(IngestParams.ACCUMULO_MOCK)
+      dsp.zookeepersParam.getName -> args(IngestParams.ZOOKEEPERS),
+      dsp.instanceIdParam.getName -> args(IngestParams.ACCUMULO_INSTANCE),
+      dsp.tableNameParam.getName  -> args(IngestParams.CATALOG_TABLE),
+      dsp.userParam.getName       -> args(IngestParams.ACCUMULO_USER),
+      dsp.passwordParam.getName   -> args(IngestParams.ACCUMULO_PASSWORD),
+      dsp.authsParam.getName      -> args.optional(IngestParams.AUTHORIZATIONS),
+      dsp.visibilityParam.getName -> args.optional(IngestParams.VISIBILITIES),
+      dsp.mockParam.getName       -> args.optional(IngestParams.ACCUMULO_MOCK)
     ).collect{ case (key, Some(value)) => (key, value); case (key, value: String) => (key, value) }
 
   lazy val delim = format match {
@@ -152,12 +154,21 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
         logger.warn(s"Cannot ingest feature on line number: $lineNumber: ${ex.getMessage}")
     }
 
+  def isList(ad: AttributeDescriptor) = classOf[java.util.List[_]].isAssignableFrom(ad.getType.getBinding)
+
+  def toList(s: String, ad:AttributeDescriptor) = {
+    val clazz = ad.getUserData.get("subtype").asInstanceOf[Class[_]]
+    s.split(listDelimiter.charAt(0)).map { value =>
+      Converters.convert(value, clazz).asInstanceOf[AnyRef]
+    }.toList
+  }
+
   // Populate the fields of a SimpleFeature with a line of CSV
   def ingestDataToFeature(line: String, feature: SimpleFeature) = {
     val reader = CSVParser.parse(line, delim)
     val fields: List[String] =
       try {
-        val allFields = reader.getRecords.flatten.toList
+        val allFields = reader.getRecords.get(0).toList
         if (colList.isDefined) colList.map(_.map(allFields(_))).get else allFields
       } catch {
         case e: Exception => throw new Exception(s"Commons CSV could not parse " +
@@ -169,9 +180,14 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
     val id = idBuilder(fields)
     feature.getIdentifier.asInstanceOf[FeatureIdImpl].setID(id)
     feature.getUserData.put(Hints.USE_PROVIDED_FID, java.lang.Boolean.TRUE)
+
     //add data
     for (idx <- 0 until fields.length) {
-      feature.setAttribute(idx, fields(idx))
+      if (isList(sft.getAttributeDescriptors.get(idx))) {
+        feature.setAttribute(idx, toList(fields(idx), sft.getAttributeDescriptors.get(idx)))
+      } else {
+        feature.setAttribute(idx, fields(idx))
+      }
     }
     //add datetime to feature
     dtBuilder.foreach { dateBuilder => addDateToFeature(line, fields, feature, dateBuilder) }
@@ -238,39 +254,39 @@ class DelimitedIngestJob(args: Args) extends Job(args) with Logging {
         }
     }
 
-  /*
-   * Parse column list input string into a sorted list of column indexes.
-   * column list input string is a list of comma-separated column-ranges. A column-range has one
-   * of following formats:
-   * 1. num - a column defined by num.
-   * 2. num1-num2- a range defined by num1 and num2.
-   * Example: "1,4-6,10,11,12" results in List(1, 4, 5, 6, 10, 11, 12)
-   */
-  object ColsParser extends JavaTokenParsers {
-    private val integer = wholeNumber ^^ { _.toInt }
-    private val singleCol =
-      integer ^^ {
-        case e if e >= 0 => List(e)
-        case _           => throw new IllegalArgumentException("Positive column numbers only")
-      }
+}
 
-    private val colRange  =
-      (singleCol <~ "-") ~ singleCol ^^ {
-        case (s::Nil) ~ (e::Nil) if s < e => Range.inclusive(s, e).toList
-        case _                            => throw new IllegalArgumentException("Invalid range")
-      }
-
-    private val parser =
-      repsep(colRange | singleCol, ",") ^^ {
-        case l => l.flatten.sorted.distinct
-      }
-
-    def build(str: String): List[Int] = parse(parser, str) match {
-      case Success(i, _)   => i
-      case Failure(msg, _) => throw new IllegalArgumentException(msg)
-      case Error(msg, _)   => throw new IllegalArgumentException(msg)
+/*
+ * Parse column list input string into a sorted list of column indexes.
+ * column list input string is a list of comma-separated column-ranges. A column-range has one
+ * of following formats:
+ * 1. num - a column defined by num.
+ * 2. num1-num2- a range defined by num1 and num2.
+ * Example: "1,4-6,10,11,12" results in List(1, 4, 5, 6, 10, 11, 12)
+ */
+object ColsParser extends JavaTokenParsers {
+  private val integer = wholeNumber ^^ { _.toInt }
+  private val singleCol =
+    integer ^^ {
+      case e if e >= 0 => List(e)
+      case _           => throw new IllegalArgumentException("Positive column numbers only")
     }
-  }
 
+  private val colRange  =
+    (singleCol <~ "-") ~ singleCol ^^ {
+      case (s::Nil) ~ (e::Nil) if s < e => Range.inclusive(s, e).toList
+      case _                            => throw new IllegalArgumentException("Invalid range")
+    }
+
+  private val parser =
+    repsep(colRange | singleCol, ",") ^^ {
+      case l => l.flatten.sorted.distinct
+    }
+
+  def build(str: String): List[Int] = parse(parser, str) match {
+    case Success(i, _)   => i
+    case Failure(msg, _) => throw new IllegalArgumentException(msg)
+    case Error(msg, _)   => throw new IllegalArgumentException(msg)
+  }
 }
 
