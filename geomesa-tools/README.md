@@ -278,7 +278,7 @@ To export features, use the `export` command.
       * -fn, --feature-name
            Simple Feature Type name on which to operate
         -fmt, --format
-           Format to export (csv|tsv|gml|json|shp)
+           Format to export (csv|tsv|gml|json|shp|bin)
            Default: csv
         -id, --idAttribute
            name of the id attribute to export
@@ -288,6 +288,8 @@ To export features, use the `export` command.
            name of the latitude attribute to export
         -lon, --lonAttribute
            name of the longitude attribute to export
+        -lbl, --labelAttribute
+           name of the label attribute to export
         -max, --maxFeatures
            Maximum number of features to return. default: Long.MaxValue
            Default: 2147483647
