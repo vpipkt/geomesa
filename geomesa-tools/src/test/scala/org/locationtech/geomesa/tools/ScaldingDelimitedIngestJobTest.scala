@@ -379,13 +379,14 @@ class ScaldingDelimitedIngestJobTest extends Specification{
 
     "write a list and handle spaces, empty lists, and single element lists...and a pipe for list delimiter!" in {
       def doTest(format: String, delim: String, quote: String, featureName: String) = {
+        val spec = "name:String,foobar:List[String],*geom:Point:srid=4326"
         val ingest = new ScaldingDelimitedIngestJob(new Args(
-          csvWktParams.updated(IngestParams.SFT_SPEC,
-            List("name:String,foobar:List[String],*geom:Point:srid=4326"))
+          csvWktParams
+            .updated(IngestParams.SFT_SPEC, List(spec))
             .updated(IngestParams.FORMAT, List(format))
             .updated(IngestParams.FEATURE_NAME, List(featureName))
             .updated(IngestParams.LIST_DELIMITER, List("|"))))
-        val sft = SimpleFeatureTypes.createType(featureName, "name:String,foobar:List[Integer],*geom:Point:srid=4326")
+        val sft = SimpleFeatureTypes.createType(featureName, spec)
         val testStrings = List(
           List("1","a|b|c","POINT(1 1)"),
           List("2","a| b| c","POINT(1 1)"),
@@ -408,11 +409,11 @@ class ScaldingDelimitedIngestJobTest extends Specification{
           sf.get[String]("name") -> sf.get[java.util.List[Integer]]("foobar").toList
         }.toMap
 
-        values("1") mustEqual List("a","b","c")
-        values("2") mustEqual List("a","b","c")
+        values("1") mustEqual List("a", "b", "c")
+        values("2") mustEqual List("a", "b", "c")
         values("3") mustEqual List("a")
         values("4") mustEqual List()
-        values("5") mustEqual List("a","b","c")
+        values("5") mustEqual List("a", "b", "c")
       }
 
       doTest("csv", ",", "\"", "csvtestfeature")
@@ -450,7 +451,17 @@ class ScaldingDelimitedIngestJobTest extends Specification{
     "handle all primitives from csv" in {
 
       def doTest(format: String, delim: String, quote: String, featureName: String) = {
-        val spec = "name:String,i:List[Integer],l:List[Long],f:List[Float],d:List[Double],s:List[String],b:List[Boolean],u:List[UUID],dt:List[Date],*geom:Point:srid=4326"
+        val spec = List(
+          "name:String",
+          "i:List[Integer]",
+          "l:List[Long]",
+          "f:List[Float]",
+          "d:List[Double]",
+          "s:List[String]",
+          "b:List[Boolean]",
+          "u:List[UUID]",
+          "dt:List[Date]",
+          "*geom:Point:srid=4326").mkString(",")
         val ingest = new ScaldingDelimitedIngestJob(new Args(
           csvWktParams.updated(IngestParams.SFT_SPEC,
             List(spec))
@@ -480,12 +491,17 @@ class ScaldingDelimitedIngestJobTest extends Specification{
         f1.get[JList[Double]]("d").toList  mustEqual List[Double](1.0d, 2.0d, 3.0d)
         f1.get[JList[String]]("s").toList  mustEqual List[String]("a", "b", "c")
         f1.get[JList[Boolean]]("b").toList mustEqual List[Boolean](true, false, true)
-        f1.get[JList[UUID]]("u").toList    mustEqual List("12345678-1234-1234-1234-123456789012", "00000000-0000-0000-0000-000000000000").map(UUID.fromString(_)).toList
-        f1.get[JList[Date]]("dt").toList   mustEqual List("2014-01-01", "2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
+        f1.get[JList[UUID]]("u").toList    mustEqual
+          List("12345678-1234-1234-1234-123456789012",
+            "00000000-0000-0000-0000-000000000000").map(UUID.fromString(_)).toList
+        f1.get[JList[Date]]("dt").toList   mustEqual
+          List("2014-01-01", "2014-01-02", "2014-01-03")
+            .map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
 
         // FUN with Generics!!!! ... lists of dates as lists of uuids ? yay type erasure + jvm + scala?
         val foo = f1.get[JList[UUID]]("dt").toList
-        val bar = List("2014-01-01", "2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
+        val bar = List("2014-01-01", "2014-01-02", "2014-01-03")
+          .map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
         val baz = f1.get[JList[Date]]("dt").toList
         foo mustEqual bar
         bar mustEqual baz
