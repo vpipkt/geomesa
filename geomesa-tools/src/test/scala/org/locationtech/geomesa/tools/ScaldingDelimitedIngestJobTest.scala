@@ -377,21 +377,21 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
     }
 
-    "write a list and handle spaces, empty lists, and single element lists" in {
-
+    "write a list and handle spaces, empty lists, and single element lists...and a pipe for list delimiter!" in {
       def doTest(format: String, delim: String, quote: String, featureName: String) = {
         val ingest = new ScaldingDelimitedIngestJob(new Args(
           csvWktParams.updated(IngestParams.SFT_SPEC,
             List("name:String,foobar:List[String],*geom:Point:srid=4326"))
             .updated(IngestParams.FORMAT, List(format))
-            .updated(IngestParams.FEATURE_NAME, List(featureName))))
+            .updated(IngestParams.FEATURE_NAME, List(featureName))
+            .updated(IngestParams.LIST_DELIMITER, List("|"))))
         val sft = SimpleFeatureTypes.createType(featureName, "name:String,foobar:List[Integer],*geom:Point:srid=4326")
         val testStrings = List(
-          List("1","a,b,c","POINT(1 1)"),
-          List("2","a, b, c","POINT(1 1)"),
+          List("1","a|b|c","POINT(1 1)"),
+          List("2","a| b| c","POINT(1 1)"),
           List("3","a","POINT(1 1)"),
           List("4","","POINT(1 1)"),
-          List("5","a, b, c","POINT(1 1)")
+          List("5","a| b| c","POINT(1 1)")
         ).map { lst => lst.map(quote + _ + quote).mkString(delim)}
 
         val features = testStrings.map { s =>

@@ -84,5 +84,5 @@ object UsefulFileTap {
   val XZ = "xz"
 }
 
-// TODO actually enable multiple files: GEOMESA-528
+// TODO enable usage of multiple local files: GEOMESA-593
 case class MultipleUsefulTextLineFiles(path: String*) extends UsefulFileSource(path: _*) with TextLineScheme
