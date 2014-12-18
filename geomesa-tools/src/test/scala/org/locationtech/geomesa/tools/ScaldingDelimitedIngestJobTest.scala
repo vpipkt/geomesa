@@ -473,15 +473,15 @@ class ScaldingDelimitedIngestJobTest extends Specification{
         ingest.ingestDataToFeature(testString, f1)
 
         type JList[T] = java.util.List[T]
-        f1.get[String]("name") mustEqual "somename"
+        f1.get[String]("name")             mustEqual "somename"
         f1.get[JList[Integer]]("i").toList mustEqual List[Int](1, 2, 3, 4)
-        f1.get[JList[Long]]("l").toList mustEqual List[Long](1, 2, 3, 4)
-        f1.get[JList[Float]]("f").toList mustEqual List[Float](1.0f, 2.0f, 3.0f)
-        f1.get[JList[Double]]("d").toList mustEqual List[Double](1.0d, 2.0d, 3.0d)
-        f1.get[JList[String]]("s").toList mustEqual List[String]("a", "b", "c")
+        f1.get[JList[Long]]("l").toList    mustEqual List[Long](1, 2, 3, 4)
+        f1.get[JList[Float]]("f").toList   mustEqual List[Float](1.0f, 2.0f, 3.0f)
+        f1.get[JList[Double]]("d").toList  mustEqual List[Double](1.0d, 2.0d, 3.0d)
+        f1.get[JList[String]]("s").toList  mustEqual List[String]("a", "b", "c")
         f1.get[JList[Boolean]]("b").toList mustEqual List[Boolean](true, false, true)
-        f1.get[JList[UUID]]("u").toList mustEqual List("12345678-1234-1234-1234-123456789012", "00000000-0000-0000-0000-000000000000").map(UUID.fromString(_)).toList
-        f1.get[JList[Date]]("dt").toList mustEqual List("2014-01-01", "2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
+        f1.get[JList[UUID]]("u").toList    mustEqual List("12345678-1234-1234-1234-123456789012", "00000000-0000-0000-0000-000000000000").map(UUID.fromString(_)).toList
+        f1.get[JList[Date]]("dt").toList   mustEqual List("2014-01-01", "2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
 
         // FUN with Generics!!!! ... lists of dates as lists of uuids ? yay type erasure + jvm + scala?
         val foo = f1.get[JList[UUID]]("dt").toList
