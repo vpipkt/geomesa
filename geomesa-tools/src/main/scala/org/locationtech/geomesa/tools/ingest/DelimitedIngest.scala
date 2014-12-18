@@ -70,7 +70,7 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
           throw new IllegalArgumentException("Cannot ingest multiple files in Local mode..." +
             "please provide only a single file argument")
         }
-      case _     =>
+      case _ =>
     }
 
   def ingestLibJars = {
@@ -137,9 +137,9 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
 }
 
 object DelimitedIngest {
-  def encodeFileList(f: List[String]) =
-    f.map { s => Hex.encodeHexString(s.getBytes(StandardCharsets.UTF_8)) }.mkString(" ")
+  def encodeFileList(files: List[String]) =
+    files.map { s => Hex.encodeHexString(s.getBytes(StandardCharsets.UTF_8)) }.mkString(" ")
 
-  def decodeFileList(s: String) =
-    s.split(" ").map { s => new String(Hex.decodeHex(s.toCharArray)) }
+  def decodeFileList(encoded: String) =
+    encoded.split(" ").map { s => new String(Hex.decodeHex(s.toCharArray)) }
 }

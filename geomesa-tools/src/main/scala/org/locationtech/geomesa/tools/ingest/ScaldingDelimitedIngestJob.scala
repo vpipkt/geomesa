@@ -37,6 +37,8 @@ import org.locationtech.geomesa.tools.Utils.IngestParams
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.`type`.AttributeDescriptor
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
+import ScaldingDelimitedIngestJob.toList
+import ScaldingDelimitedIngestJob.isList
 
 import scala.util.parsing.combinator.JavaTokenParsers
 import scala.util.{Failure, Success, Try}
@@ -60,7 +62,7 @@ class ScaldingDelimitedIngestJob(args: Args) extends Job(args) with Logging {
   lazy val format           = args(IngestParams.FORMAT)
   lazy val isTestRun        = args(IngestParams.IS_TEST_INGEST).toBoolean
   lazy val featureName      = args(IngestParams.FEATURE_NAME)
-  lazy val listDelimiter    = args(IngestParams.LIST_DELIMITER)
+  lazy val listDelimiter    = args(IngestParams.LIST_DELIMITER).charAt(0)
 
   //Data Store parameters
   lazy val dsConfig =
@@ -154,15 +156,6 @@ class ScaldingDelimitedIngestJob(args: Args) extends Job(args) with Logging {
         logger.warn(s"Cannot ingest feature on line number: $lineNumber: ${ex.getMessage}")
     }
 
-  def isList(ad: AttributeDescriptor) = classOf[java.util.List[_]].isAssignableFrom(ad.getType.getBinding)
-
-  def toList(s: String, ad:AttributeDescriptor) = {
-    val clazz = ad.getUserData.get("subtype").asInstanceOf[Class[_]]
-    s.split(listDelimiter.charAt(0)).map { value =>
-      Converters.convert(value, clazz).asInstanceOf[AnyRef]
-    }.toList
-  }
-
   // Populate the fields of a SimpleFeature with a line of CSV
   def ingestDataToFeature(line: String, feature: SimpleFeature) = {
     val reader = CSVParser.parse(line, delim)
@@ -184,7 +177,7 @@ class ScaldingDelimitedIngestJob(args: Args) extends Job(args) with Logging {
     //add data
     for (idx <- 0 until fields.length) {
       if (isList(sft.getAttributeDescriptors.get(idx))) {
-        feature.setAttribute(idx, toList(fields(idx), sft.getAttributeDescriptors.get(idx)))
+        feature.setAttribute(idx, toList(fields(idx), listDelimiter, sft.getAttributeDescriptors.get(idx)))
       } else {
         feature.setAttribute(idx, fields(idx))
       }
@@ -254,6 +247,21 @@ class ScaldingDelimitedIngestJob(args: Args) extends Job(args) with Logging {
         }
     }
 
+}
+
+object ScaldingDelimitedIngestJob {
+  def isList(ad: AttributeDescriptor) = classOf[java.util.List[_]].isAssignableFrom(ad.getType.getBinding)
+
+  def toList(s: String, delim: Char,  ad: AttributeDescriptor) = {
+    val clazz = ad.getUserData.get("subtype").asInstanceOf[Class[_]]
+    if (s.isEmpty) {
+     List()
+    } else {
+      s.split(delim).map(_.trim).map { value =>
+        Converters.convert(value, clazz).asInstanceOf[AnyRef]
+      }.toList
+    }
+  }
 }
 
 /*
