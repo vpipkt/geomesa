@@ -46,7 +46,7 @@ class DelimitedIngest(params: IngestParameters) extends AccumuloProperties {
 
     // setup ingest
     val mode =
-      if (getMode(params.files(0)) == Modes.Hdfs) {
+      if (getJobMode(params.files(0)) == Modes.Hdfs) {
         Hdfs(strict = true, conf)
       } else {
         Local(strictSources = true)
