@@ -22,21 +22,19 @@ import com.twitter.scalding.Args
 import com.vividsolutions.jts.geom.Geometry
 import org.geotools.data.DataStoreFinder
 import org.geotools.filter.identity.FeatureIdImpl
-import org.joda.time.{DateTimeZone, DateTime}
+import org.joda.time.{DateTime, DateTimeZone}
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.data.AccumuloDataStore
-import org.locationtech.geomesa.core.data.AccumuloDataStoreFactory.{params}
+import org.locationtech.geomesa.core.data.AccumuloDataStoreFactory.params
 import org.locationtech.geomesa.feature.AvroSimpleFeature
 import org.locationtech.geomesa.tools.Utils.IngestParams
 import org.locationtech.geomesa.tools.ingest.{ColsParser, ScaldingDelimitedIngestJob}
+import org.locationtech.geomesa.utils.geotools.Conversions._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
-import org.opengis.feature.simple.SimpleFeature
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
+
 import scala.collection.JavaConversions._
-import org.locationtech.geomesa.utils.geotools.Conversions._
-
-
 import scala.io.Source
 import scala.util.Try
 
@@ -109,7 +107,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "1325409954,2013-07-17,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -123,7 +121,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "\"1325409954\",\"2013-07-17\",\"-90.368732\",\"35.3155\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -137,7 +135,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "\"1325409954\",2013-07-17\",\"-90.368732\",\"35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beAFailedTry
+      ingest.ingestDataToFeature(testString, f) must throwA[Exception]
     }
 
     "properly add attributes to an AvroSimpleFeature from a tab-delimited string" in {
@@ -145,7 +143,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "1325409954\t2013-07-17\t-90.368732\t35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -159,7 +157,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "\"1325409954\"\t\"2013-07-17\"\t\"-90.368732\"\t\"35.3155\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -174,7 +172,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "1325409954,1410199543000,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -189,7 +187,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "1325409954,-90.368732,35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.lang.Double]
@@ -204,7 +202,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "1325409954\t-90.368732\t35.3155"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,lon:Double,lat:Double,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.lang.Double]
@@ -217,7 +215,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "294908082,2013-07-17,POINT(-90.161852 32.39271)"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -241,7 +239,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "294908082,2013-07-17,\"POLYGON((0 0, 0 10, 10 10, 0 0))\""
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -253,7 +251,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "294908082\t2013-07-17\tPOLYGON((0 0, 0 10, 10 10, 0 0))"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:Double,time:Date,*geom:Geometry")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.Double]
       f.getAttribute(1) must beAnInstanceOf[java.util.Date]
@@ -268,7 +266,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
       val testString = "0000\tgeomesa user\t823543\tGeoMesa rules!\t2014/08/13 :06:06:06:\tPoint(-78.4 38.0)"
       val sft = SimpleFeatureTypes.createType("test_type", "fid:String,username:String,userid:String,text:String,time:Date,*geom:Point:srid=4326")
       val f = new AvroSimpleFeature(new FeatureIdImpl("test_type"), sft)
-      Try(ingest.ingestDataToFeature(testString, f)) must beASuccessfulTry
+      ingest.ingestDataToFeature(testString, f)
 
       f.getAttribute(0) must beAnInstanceOf[java.lang.String]
       f.getAttribute(1) must beAnInstanceOf[java.lang.String]
@@ -394,7 +392,7 @@ class ScaldingDelimitedIngestJobTest extends Specification{
 
       val features = testStrings.map { s =>
         val sf = new AvroSimpleFeature(new FeatureIdImpl("foobarlisttest"), sft)
-        Try(ingest.ingestDataToFeature(s, sf)) must beASuccessfulTry
+        ingest.ingestDataToFeature(s, sf)
         sf
       }
 
