@@ -16,6 +16,7 @@
 
 package org.locationtech.geomesa.tools
 
+import java.util.regex.MatchResult
 import java.util.{Date, UUID}
 
 import com.twitter.scalding.Args
@@ -377,103 +378,124 @@ class ScaldingDelimitedIngestJobTest extends Specification{
     }
 
     "write a list and handle spaces, empty lists, and single element lists" in {
-      val ingest = new ScaldingDelimitedIngestJob(new Args(
-        csvWktParams.updated(IngestParams.SFT_SPEC,
-              List("name:String,foobar:List[String],*geom:Point:srid=4326"))
-        .updated(IngestParams.FORMAT, List("CSV"))
-        .updated(IngestParams.FEATURE_NAME, List("foobarlisttest"))))
-      val sft = SimpleFeatureTypes.createType("foobarlisttest", "name:String,foobar:List[Integer],*geom:Point:srid=4326")
-      val testStrings =
-        """"1","a,b,c","POINT(1 1)"
-          |"2","a, b, c","POINT(1 1)"
-          |"3","a","POINT(1 1)"
-          |"4","","POINT(1 1)"
-          |"5","a, b, c","POINT(1 1)"""".stripMargin.split('\n').toList
 
-      val features = testStrings.map { s =>
-        val sf = new AvroSimpleFeature(new FeatureIdImpl("foobarlisttest"), sft)
-        ingest.ingestDataToFeature(s, sf)
-        sf
+      def doTest(format: String, delim: String, quote: String, featureName: String) = {
+        val ingest = new ScaldingDelimitedIngestJob(new Args(
+          csvWktParams.updated(IngestParams.SFT_SPEC,
+            List("name:String,foobar:List[String],*geom:Point:srid=4326"))
+            .updated(IngestParams.FORMAT, List(format))
+            .updated(IngestParams.FEATURE_NAME, List(featureName))))
+        val sft = SimpleFeatureTypes.createType(featureName, "name:String,foobar:List[Integer],*geom:Point:srid=4326")
+        val testStrings = List(
+          List("1","a,b,c","POINT(1 1)"),
+          List("2","a, b, c","POINT(1 1)"),
+          List("3","a","POINT(1 1)"),
+          List("4","","POINT(1 1)"),
+          List("5","a, b, c","POINT(1 1)")
+        ).map { lst => lst.map(quote + _ + quote).mkString(delim)}
+
+        val features = testStrings.map { s =>
+          val sf = new AvroSimpleFeature(new FeatureIdImpl(featureName), sft)
+          ingest.ingestDataToFeature(s, sf)
+          sf
+        }
+
+        ingest.runTestIngest(testStrings.toIterator) must beASuccessfulTry
+        forall(features) { _.getAttribute("foobar") must beAnInstanceOf[java.util.List[Integer]] }
+
+        val values = ds.getFeatureSource(featureName).getFeatures.features().map { sf =>
+          // must convert list to scala list for equality tests below
+          sf.get[String]("name") -> sf.get[java.util.List[Integer]]("foobar").toList
+        }.toMap
+
+        values("1") mustEqual List("a","b","c")
+        values("2") mustEqual List("a","b","c")
+        values("3") mustEqual List("a")
+        values("4") mustEqual List()
+        values("5") mustEqual List("a","b","c")
       }
 
-      ingest.runTestIngest(testStrings.toIterator) must beASuccessfulTry
-      forall(features) { _.getAttribute("foobar") must beAnInstanceOf[java.util.List[Integer]] }
-
-      val values = ds.getFeatureSource("foobarlisttest").getFeatures.features().map{ sf =>
-        // must convert list to scala list for equality tests below
-        sf.get[String]("name") -> sf.get[java.util.List[Integer]]("foobar").toList
-      }.toMap
-
-      values("1") mustEqual List("a","b","c")
-      values("2") mustEqual List("a","b","c")
-      values("3") mustEqual List("a")
-      values("4") mustEqual List()
-      values("5") mustEqual List("a","b","c")
+      doTest("csv", ",", "\"", "csvtestfeature")
+      doTest("tsv", "\t", "", "tsvtestfeature")
+      success
     }
 
-    "ingest a list as csv" in {
-      val path = Runner.getClass.getResource("/test_list.csv")
-      val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.SFT_SPEC,
-        List("i:Integer,numbers:List[Integer],time:Date,lon:Double,lat:Double,*geom:Point:srid=4326"))
-          .updated(IngestParams.FORMAT, List("csv"))))
+    "ingest a list as from a file" in {
+      def doTest(testFileName: String, format: String, featureName: String) = {
+        val path = Runner.getClass.getResource(testFileName)
+        val ingest = new ScaldingDelimitedIngestJob(new Args(csvNormParams.updated(IngestParams.SFT_SPEC,
+          List("i:Integer,numbers:List[Integer],time:Date,lon:Double,lat:Double,*geom:Point:srid=4326"))
+          .updated(IngestParams.FORMAT, List(format))
+          .updated(IngestParams.FEATURE_NAME, List(featureName))))
 
-      ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
+        ingest.runTestIngest(Source.fromFile(path.toURI).getLines) must beASuccessfulTry
 
-      val values = ds.getFeatureSource("test_type").getFeatures.features().map{ sf =>
-        // must convert list to scala list for equality tests below
-        sf.get[Integer]("i") -> sf.get[java.util.List[Integer]]("numbers").toList
-      }.toMap
+        val values = ds.getFeatureSource(featureName).getFeatures.features().map { sf =>
+          // must convert list to scala list for equality tests below
+          sf.get[Integer]("i") -> sf.get[java.util.List[Integer]]("numbers").toList
+        }.toMap
 
-      values(1) mustEqual List(1,2,3,4)
-      values(2) mustEqual List(5,6,7,8)
-      values(3) mustEqual List(9,10)
-      values(4) mustEqual List(11)
-      values(5) mustEqual List()
-      values(6) mustEqual List(111,222)
+        values(1) mustEqual List(1, 2, 3, 4)
+        values(2) mustEqual List(5, 6, 7, 8)
+        values(3) mustEqual List(9, 10)
+        values(4) mustEqual List(11)
+        values(5) mustEqual List()
+        values(6) mustEqual List(111, 222)
+      }
+      doTest("/test_list.csv", "csv", "csvFeature")
+      doTest("/test_list.tsv", "tsv", "tsvFeature")
+      success
     }
 
-    "handle all primitives" in {
-      val spec = "name:String,i:List[Integer],l:List[Long],f:List[Float],d:List[Double],s:List[String],b:List[Boolean],u:List[UUID],dt:List[Date],*geom:Point:srid=4326"
-      val ingest = new ScaldingDelimitedIngestJob(new Args(
-        csvWktParams.updated(IngestParams.SFT_SPEC,
-          List(spec))
-          .updated(IngestParams.FORMAT, List("csv"))
-          .updated(IngestParams.FEATURE_NAME, List("primitive_test"))))
-      val sft = SimpleFeatureTypes.createType("primitive_test", spec)
-      val testString = List(
-        "somename",
-        "1,2,3,4",
-        "1,2,3,4",
-        "1.0, 2.0, 3.0",
-        "1.0, 2.0, 3.0",
-        "a,b,c",
-        "true, false, true",
-        "12345678-1234-1234-1234-123456789012,00000000-0000-0000-0000-000000000000",
-        "2014-01-01,2014-01-02, 2014-01-03",
-        "Point(1 2)").map('"' + _ + '"').mkString(",")
+    "handle all primitives from csv" in {
 
-      val f1 = new AvroSimpleFeature(new FeatureIdImpl("primitive_test"), sft)
-      ingest.ingestDataToFeature(testString, f1)
+      def doTest(format: String, delim: String, quote: String, featureName: String) = {
+        val spec = "name:String,i:List[Integer],l:List[Long],f:List[Float],d:List[Double],s:List[String],b:List[Boolean],u:List[UUID],dt:List[Date],*geom:Point:srid=4326"
+        val ingest = new ScaldingDelimitedIngestJob(new Args(
+          csvWktParams.updated(IngestParams.SFT_SPEC,
+            List(spec))
+            .updated(IngestParams.FORMAT, List(format))
+            .updated(IngestParams.FEATURE_NAME, List(featureName))))
+        val sft = SimpleFeatureTypes.createType(featureName, spec)
+        val testString = List(
+          "somename",
+          "1,2,3,4",
+          "1,2,3,4",
+          "1.0, 2.0, 3.0",
+          "1.0, 2.0, 3.0",
+          "a,b,c",
+          "true, false, true",
+          "12345678-1234-1234-1234-123456789012,00000000-0000-0000-0000-000000000000",
+          "2014-01-01,2014-01-02, 2014-01-03",
+          "Point(1 2)").map(quote + _ + quote).mkString(delim)
 
-      type JList[T] = java.util.List[T]
-      f1.get[String]("name")             mustEqual "somename"
-      f1.get[JList[Integer]]("i").toList mustEqual List[Int](1, 2, 3, 4)
-      f1.get[JList[Long]]("l").toList    mustEqual List[Long](1, 2, 3, 4)
-      f1.get[JList[Float]]("f").toList   mustEqual List[Float](1.0f, 2.0f, 3.0f)
-      f1.get[JList[Double]]("d").toList  mustEqual List[Double](1.0d, 2.0d, 3.0d)
-      f1.get[JList[String]]("s").toList  mustEqual List[String]("a", "b", "c")
-      f1.get[JList[Boolean]]("b").toList mustEqual List[Boolean](true, false, true)
-      f1.get[JList[UUID]]("u").toList    mustEqual List("12345678-1234-1234-1234-123456789012","00000000-0000-0000-0000-000000000000").map(UUID.fromString(_)).toList
-      f1.get[JList[Date]]("dt").toList   mustEqual List("2014-01-01","2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate }.toList
+        val f1 = new AvroSimpleFeature(new FeatureIdImpl(featureName), sft)
+        ingest.ingestDataToFeature(testString, f1)
 
-      // FUN with Generics!!!! ... lists of dates as lists of uuids ? yay type erasure + jvm + scala?
-      val foo = f1.get[JList[UUID]]("dt").toList
-      val bar = List("2014-01-01","2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate }.toList
-      val baz = f1.get[JList[Date]]("dt").toList
-      foo mustEqual bar
-      bar mustEqual baz
-      foo(0) must throwA[ClassCastException]
-      baz(0) must not(throwA[ClassCastException])
+        type JList[T] = java.util.List[T]
+        f1.get[String]("name") mustEqual "somename"
+        f1.get[JList[Integer]]("i").toList mustEqual List[Int](1, 2, 3, 4)
+        f1.get[JList[Long]]("l").toList mustEqual List[Long](1, 2, 3, 4)
+        f1.get[JList[Float]]("f").toList mustEqual List[Float](1.0f, 2.0f, 3.0f)
+        f1.get[JList[Double]]("d").toList mustEqual List[Double](1.0d, 2.0d, 3.0d)
+        f1.get[JList[String]]("s").toList mustEqual List[String]("a", "b", "c")
+        f1.get[JList[Boolean]]("b").toList mustEqual List[Boolean](true, false, true)
+        f1.get[JList[UUID]]("u").toList mustEqual List("12345678-1234-1234-1234-123456789012", "00000000-0000-0000-0000-000000000000").map(UUID.fromString(_)).toList
+        f1.get[JList[Date]]("dt").toList mustEqual List("2014-01-01", "2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
+
+        // FUN with Generics!!!! ... lists of dates as lists of uuids ? yay type erasure + jvm + scala?
+        val foo = f1.get[JList[UUID]]("dt").toList
+        val bar = List("2014-01-01", "2014-01-02", "2014-01-03").map { dt => new DateTime(dt).withZone(DateTimeZone.UTC).toDate}.toList
+        val baz = f1.get[JList[Date]]("dt").toList
+        foo mustEqual bar
+        bar mustEqual baz
+        foo(0) must throwA[ClassCastException]
+        baz(0) must not(throwA[ClassCastException])
+      }
+
+      doTest("csv", ",", "\"", "csvtestfeature")
+      doTest("tsv", "\t", "", "tsvtestfeature")
+      success
     }
   }
 }
