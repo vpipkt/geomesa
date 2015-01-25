@@ -36,6 +36,7 @@
         <module>geomesa-assemble</module>
         <module>geomesa-web</module>
         <module>geomesa-kafka</module>
+        <module>geomesa-convert</module>
     </modules>
 
     <properties>
