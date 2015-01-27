@@ -23,6 +23,7 @@
     <packaging>pom</packaging>
     <modules>
         <module>geomesa-convert-avro</module>
+        <module>geomesa-convert-common</module>
     </modules>
 
 </project>
