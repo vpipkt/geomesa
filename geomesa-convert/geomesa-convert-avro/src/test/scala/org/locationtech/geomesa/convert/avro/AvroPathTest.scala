@@ -1,7 +1,6 @@
 package org.locationtech.geomesa.convert.avro
 
 import org.apache.avro.generic._
-import org.apache.avro.util.Utf8
 import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -47,22 +46,22 @@ class AvroPathTest extends Specification with AvroUtils {
     }
 
     "filter arrays of records by a field predicate" in {
-      val path = "/content$type=TObj/kvmap[$k=prop1]"
+      val path = "/content$type=TObj/kvmap[$k=lat]"
       val avroPath = AvroPath(path)
       val result = avroPath.eval(gr1)
       result.isDefined mustEqual true
       val r = result.get.asInstanceOf[GenericRecord]
-      r.get("k").asInstanceOf[Utf8].toString mustEqual "prop1"
+      r.get("v").asInstanceOf[Double] mustEqual 45.0
     }
 
     "select a property out of a record in an array" in {
       "filter arrays of records by a field predicate" in {
-        val path = "/content$type=TObj/kvmap[$k=prop1]/v"
+        val path = "/content$type=TObj/kvmap[$k=lat]/v"
         val avroPath = AvroPath(path)
         val result = avroPath.eval(gr1)
         result.isDefined mustEqual true
-        val v = result.get.asInstanceOf[String]
-        v mustEqual "v1"
+        val v = result.get.asInstanceOf[Double]
+        v mustEqual 45.0
       }
     }
   }

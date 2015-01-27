@@ -9,8 +9,8 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>geomesa-convert-common-accumulo1.5</artifactId>
-    <name>GeoMesa Convert Common - [Accumulo 1.5.x]</name>
+    <artifactId>geomesa-convert-text-accumulo1.5</artifactId>
+    <name>GeoMesa Convert Text - [Accumulo 1.5.x]</name>
 
     <dependencies>
         <dependency>
@@ -18,12 +18,14 @@
             <artifactId>scala-library</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.typesafe</groupId>
-            <artifactId>config</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-feature-accumulo1.5</artifactId>
+            <artifactId>geomesa-convert-common-accumulo1.5</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
         </dependency>
         <dependency>
             <groupId>org.specs2</groupId>
@@ -31,5 +33,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
 </project>
