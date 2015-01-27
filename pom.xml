@@ -31,12 +31,12 @@
         <module>geomesa-plugin</module>
         <module>geomesa-filter</module>
         <module>geomesa-feature</module>
+        <module>geomesa-kafka</module>
+        <module>geomesa-convert</module>
         <module>geomesa-tools</module>
         <module>geomesa-compute</module>
         <module>geomesa-assemble</module>
         <module>geomesa-web</module>
-        <module>geomesa-kafka</module>
-        <module>geomesa-convert</module>
     </modules>
 
     <properties>
