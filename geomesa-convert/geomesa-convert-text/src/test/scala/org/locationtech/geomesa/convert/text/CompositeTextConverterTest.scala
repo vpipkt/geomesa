@@ -28,7 +28,7 @@ class CompositeTextConverterTest extends Specification {
       |     converter = {
       |       type         = "delimited-text",
       |       type-name    = "testsft"
-      |       delimiter    = ",",
+      |       format       = "DEFAULT",
       |       id-field     = "concat('first', $1)",
       |       fields = [
       |         { name = "phrase", transform = "concat($1, $2)" },
@@ -43,7 +43,7 @@ class CompositeTextConverterTest extends Specification {
       |     converter = {
       |       type         = "delimited-text",
       |       type-name    = "testsft"
-      |       delimiter    = ",",
+      |       format       = "DEFAULT",
       |       id-field     = "concat('second', $1)",
       |       fields = [
       |         { name = "phrase", transform = "concat($1, $2)" },
