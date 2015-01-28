@@ -194,9 +194,13 @@ trait TransformerFunctionFactory {
 class StringFunctionFactory extends TransformerFunctionFactory {
 
   override def functions: Seq[String] =
-    Seq("trim", "capitalize", "lowercase", "regexReplace", "concat", "substr", "strlen")
+    Seq("stripQuotes", "trim", "capitalize", "lowercase", "regexReplace", "concat", "substr", "strlen")
 
   def build(name: String) = name match {
+    case "stripQuotes" =>
+      val f: (Any*) => Any = args => args(0).asInstanceOf[String].replaceAll("\"", "")
+      StringFn(f)
+
     case "strlen" =>
       val f: (Any*) => Any = args => args(0).asInstanceOf[String].length
       StringFn(f)

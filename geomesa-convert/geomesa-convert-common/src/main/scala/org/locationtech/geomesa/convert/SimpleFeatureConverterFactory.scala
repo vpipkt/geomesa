@@ -79,6 +79,7 @@ trait SimpleFeatureConverter[I] {
   def targetSFT: SimpleFeatureType
   def processInput(is: Iterator[I]): Iterator[SimpleFeature]
   def processSingleInput(i: I): SimpleFeature
+  def close(): Unit = {}
 }
 
 trait ToSimpleFeatureConverter[I] extends SimpleFeatureConverter[I] {
