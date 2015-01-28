@@ -2,6 +2,7 @@ package org.locationtech.geomesa.convert.text
 
 import com.typesafe.config.ConfigFactory
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.convert.SimpleFeatureConverters
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
@@ -19,6 +20,7 @@ class DelimitedTextConverterTest extends Specification {
     val conf = ConfigFactory.parseString(
       """
         | converter = {
+        |   type         = "delimited-text",
         |   type-name    = "testsft",
         |   delimiter    = ",",
         |   id-field     = "md5(string2bytes($0))",
@@ -32,7 +34,7 @@ class DelimitedTextConverterTest extends Specification {
       """.stripMargin)
 
     "be built from a conf" >> {
-      val converter = DelimitedTextConverterBuilder.apply(conf.getConfig("converter"))
+      val converter = SimpleFeatureConverters.build[String](conf)
       converter must not beNull
 
       "and process some data" >> {
@@ -47,6 +49,7 @@ class DelimitedTextConverterTest extends Specification {
       val conf = ConfigFactory.parseString(
         """
           | converter = {
+          |   type         = "delimited-text",
           |   type-name    = "testsft",
           |   delimiter    = "\t",
           |   id-field     = "md5(string2bytes($0))",
@@ -58,7 +61,7 @@ class DelimitedTextConverterTest extends Specification {
           |   ]
           | }
         """.stripMargin)
-      val converter = DelimitedTextConverterBuilder.apply(conf.getConfig("converter"))
+      val converter = SimpleFeatureConverters.build[String](conf)
       converter must not beNull
       val res = converter.processInput(data.split("\n").toIterator.filterNot( s => "^\\s*$".r.findFirstIn(s).size > 0).map(_.replaceAll(",", "\t"))).toList
       res.size must be equalTo 2

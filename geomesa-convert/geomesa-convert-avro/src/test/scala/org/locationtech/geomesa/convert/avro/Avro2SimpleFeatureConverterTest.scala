@@ -2,6 +2,7 @@ package org.locationtech.geomesa.convert.avro
 
 import com.typesafe.config.ConfigFactory
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.convert.SimpleFeatureConverters
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
@@ -13,6 +14,7 @@ class Avro2SimpleFeatureConverterTest extends Specification with AvroUtils {
     val conf = ConfigFactory.parseString(
       """
         | converter = {
+        |   type   = "avro"
         |   schema = "/schema.avsc"
         |   sft    = "testsft"
         |   id-field = "uuid()"
@@ -25,8 +27,8 @@ class Avro2SimpleFeatureConverterTest extends Specification with AvroUtils {
       """.stripMargin)
 
     "properly convert a GenericRecord to a SimpleFeature" >> {
-      val converter = Avro2SimpleFeatureConverterBuilder(conf.getConfig("converter"))
-      val sf = converter.convert(converter.fromInputType(bytes), null, null)
+      val converter = SimpleFeatureConverters.build[Array[Byte]](conf)
+      val sf = converter.processSingleInput(bytes)
       sf.getAttributeCount must be equalTo 1
     }
   }

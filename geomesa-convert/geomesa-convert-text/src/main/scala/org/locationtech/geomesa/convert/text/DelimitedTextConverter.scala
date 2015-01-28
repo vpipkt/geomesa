@@ -3,13 +3,15 @@ package org.locationtech.geomesa.convert.text
 import com.google.common.base.Splitter
 import com.google.common.collect.ObjectArrays
 import com.typesafe.config.Config
-import org.locationtech.geomesa.convert.Transformers.{Expr, Predicate}
-import org.locationtech.geomesa.convert.{Converters, Field, ToSimpleFeatureConverter}
+import org.locationtech.geomesa.convert.Transformers.Expr
+import org.locationtech.geomesa.convert.{Field, SimpleFeatureConverterFactory, ToSimpleFeatureConverter}
 import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.collection.JavaConversions._
 
-object DelimitedTextConverterBuilder extends Converters[String, Array[String]] {
+class DelimitedTextConverterFactory extends SimpleFeatureConverterFactory[String] {
+
+  override def canProcess(conf: Config): Boolean = canProcessType(conf, "delimited-text")
 
   def buildConverter(conf: Config): DelimitedTextConverter = apply(conf)
 
@@ -23,16 +25,13 @@ object DelimitedTextConverterBuilder extends Converters[String, Array[String]] {
 }
 
 class DelimitedTextConverter(delimiter: String, val targetSFT: SimpleFeatureType, val idBuilder: Expr, val inputFields: IndexedSeq[Field])
-  extends ToSimpleFeatureConverter[String, Array[String]] {
+  extends ToSimpleFeatureConverter[String] {
 
   val splitter = Splitter.on(delimiter)
 
-  override def fromInputType(string: String): Array[String] = {
+  override def fromInputType(string: String): Array[Any] = {
     val splitIter = splitter.split(string).toArray
-    ObjectArrays.concat(string, splitIter)
+    ObjectArrays.concat(string, splitIter).asInstanceOf[Array[Any]]
   }
 
-  override def applyTransform(fn: Expr, t: Array[String]): Any = fn.eval(t: _*)
-
-  override def applyPredicate(pred: Predicate, t: Array[String]): Boolean = pred.eval(t: _*)
 }

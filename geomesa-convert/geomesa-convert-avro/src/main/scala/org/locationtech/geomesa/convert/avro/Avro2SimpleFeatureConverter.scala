@@ -4,13 +4,15 @@ import com.typesafe.config.Config
 import org.apache.avro.Schema
 import org.apache.avro.generic.{GenericDatumReader, GenericRecord}
 import org.apache.avro.io.{BinaryDecoder, DecoderFactory}
-import org.locationtech.geomesa.convert.Transformers.{Expr, Predicate}
-import org.locationtech.geomesa.convert.{Converters, Field, ToSimpleFeatureConverter}
+import org.locationtech.geomesa.convert.Transformers.Expr
+import org.locationtech.geomesa.convert.{Field, SimpleFeatureConverterFactory, ToSimpleFeatureConverter}
 import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.collection.JavaConversions._
 
-object Avro2SimpleFeatureConverterBuilder extends Converters[Array[Byte], Array[AnyRef]] {
+class Avro2SimpleFeatureConverterBuilder extends SimpleFeatureConverterFactory[Array[Byte]] {
+
+  override def canProcess(conf: Config): Boolean = canProcessType(conf, "avro")
 
   def apply(conf: Config): Avro2SimpleFeatureConverter = {
     val avroSchemaPath = conf.getString("schema")
@@ -23,7 +25,7 @@ object Avro2SimpleFeatureConverterBuilder extends Converters[Array[Byte], Array[
     new Avro2SimpleFeatureConverter(avroSchema, reader, targetSFT, fields, idBuilder)
   }
 
-  override def buildConverter(conf: Config): ToSimpleFeatureConverter[Array[Byte], Array[AnyRef]] = apply(conf)
+  override def buildConverter(conf: Config): ToSimpleFeatureConverter[Array[Byte]] = apply(conf)
 }
 
 class Avro2SimpleFeatureConverter(avroSchema: Schema,
@@ -31,17 +33,14 @@ class Avro2SimpleFeatureConverter(avroSchema: Schema,
                                   val targetSFT: SimpleFeatureType,
                                   val inputFields: IndexedSeq[Field],
                                   val idBuilder: Expr)
-  extends ToSimpleFeatureConverter[Array[Byte], Array[AnyRef]] {
+  extends ToSimpleFeatureConverter[Array[Byte]] {
 
   var decoder: BinaryDecoder = null
   var recordReuse: GenericRecord = null
 
-  override def fromInputType(bytes: Array[Byte]): Array[AnyRef] = {
+  override def fromInputType(bytes: Array[Byte]): Array[Any] = {
     decoder = DecoderFactory.get.binaryDecoder(bytes, decoder)
     Array(bytes, reader.read(recordReuse, decoder))
   }
 
-  override def applyTransform(fn: Expr, t: Array[AnyRef]): Any = fn.eval(t: _*)
-
-  override def applyPredicate(pred: Predicate, t: Array[AnyRef]): Boolean = pred.eval(t: _*)
 }
