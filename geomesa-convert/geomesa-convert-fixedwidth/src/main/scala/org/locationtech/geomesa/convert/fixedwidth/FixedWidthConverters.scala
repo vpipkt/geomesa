@@ -8,9 +8,9 @@ import org.opengis.feature.simple.SimpleFeatureType
 import scala.collection.JavaConversions._
 
 case class FixedWidthField(name: String, transform: Transformers.Expr, s: Int, w: Int) extends Field {
-
+  private val e = s + w
   override def eval(args: Any*)(implicit ec: EvaluationContext): Any = {
-    transform.eval(args(0).asInstanceOf[String].substring(s, w))
+    transform.eval(args(0).asInstanceOf[String].substring(s, e))
   }
 }
 
@@ -29,9 +29,9 @@ class FixedWidthConverterFactory extends SimpleFeatureConverterFactory[String] {
     fields.map { f =>
       val name = f.getString("name")
       val transform = Transformers.parseTransform(f.getString("transform"))
-      if(f.hasPath("s") && f.hasPath("w")) {
-        val s = f.getInt("s")
-        val w = f.getInt("w")
+      if(f.hasPath("start") && f.hasPath("width")) {
+        val s = f.getInt("start")
+        val w = f.getInt("width")
         FixedWidthField(name, transform, s, w)
       } else SimpleField(name, transform)
     }.toIndexedSeq

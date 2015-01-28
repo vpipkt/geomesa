@@ -18,8 +18,8 @@ class FixedWidthConverterTest extends Specification {
         |   type-name = "testsft"
         |   id-field  = "uuid()"
         |   fields = [
-        |     { name = "lat",  transform = "$0::double", s = 1, w = 3 },
-        |     { name = "lon",  transform = "$0::double", s = 3, w = 5 },
+        |     { name = "lat",  transform = "$0::double", start = 1, width = 2 },
+        |     { name = "lon",  transform = "$0::double", start = 3, width = 2 },
         |     { name = "geom", transform = "point($lon, $lat)" }
         |   ]
         | }
