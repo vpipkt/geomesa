@@ -12,7 +12,13 @@ import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import scala.collection.JavaConversions._
 import scala.util.Try
 
-case class Field(name: String, transform: Transformers.Expr)
+trait Field {
+  def name: String
+  def transform: Transformers.Expr
+  def eval(args: Any*)(implicit ec: EvaluationContext): Any = transform.eval(args: _*)
+}
+
+case class SimpleField(name: String, transform: Transformers.Expr) extends Field
 
 trait SimpleFeatureConverterFactory[I] {
 
@@ -26,7 +32,7 @@ trait SimpleFeatureConverterFactory[I] {
     fields.map { f =>
       val name = f.getString("name")
       val transform = Transformers.parseTransform(f.getString("transform"))
-      Field(name, transform)
+      SimpleField(name, transform)
     }.toIndexedSeq
 
   def buildIdBuilder(t: String) = Transformers.parseTransform(t)
@@ -91,7 +97,7 @@ trait ToSimpleFeatureConverter[I] extends SimpleFeatureConverter[I] {
     ctx.computedFields = attributes
 
     inputFields.zipWithIndex.foreach { case (field, i) =>
-      attributes(i) = field.transform.eval(t: _*)
+      attributes(i) = field.eval(t: _*)
     }
 
     val sfAttributes =
@@ -99,7 +105,7 @@ trait ToSimpleFeatureConverter[I] extends SimpleFeatureConverter[I] {
       else sfAttrReuse
 
     indexes.foreach { case (targetIndex: Int, inputIndex: Int) =>
-        sfAttributes(targetIndex) = attributes(inputIndex)
+      sfAttributes(targetIndex) = attributes(inputIndex)
     }
 
     val id = idBuilder.eval(t: _*).asInstanceOf[String]

@@ -24,12 +24,15 @@ class DelimitedTextConverterFactory extends SimpleFeatureConverterFactory[String
   }
 }
 
-class DelimitedTextConverter(delimiter: String, val targetSFT: SimpleFeatureType, val idBuilder: Expr, val inputFields: IndexedSeq[Field])
+class DelimitedTextConverter(delimiter: String,
+                             val targetSFT: SimpleFeatureType,
+                             val idBuilder: Expr,
+                             val inputFields: IndexedSeq[Field])
   extends ToSimpleFeatureConverter[String] {
 
   val splitter = Splitter.on(delimiter)
 
-  override def fromInputType(string: String): Array[Any] = {
+  def fromInputType(string: String): Array[Any] = {
     val splitIter = splitter.split(string).toArray
     ObjectArrays.concat(string, splitIter).asInstanceOf[Array[Any]]
   }

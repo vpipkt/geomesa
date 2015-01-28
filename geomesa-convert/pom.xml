@@ -26,6 +26,7 @@
         <module>geomesa-convert-avro</module>
         <module>geomesa-convert-common</module>
         <module>geomesa-convert-text</module>
+        <module>geomesa-convert-fixedwidth</module>
     </modules>
 
 </project>
