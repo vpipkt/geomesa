@@ -2,7 +2,7 @@ package org.locationtech.geomesa.convert
 
 
 import com.typesafe.config.{Config, ConfigFactory}
-import org.locationtech.geomesa.convert.Transformers.{EvaluationContext, Expr}
+import org.locationtech.geomesa.convert.Transformers.{EvaluationContext, Expr, Predicate}
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
@@ -12,21 +12,34 @@ import scala.util.Try
 
 case class Field(name: String, transform: Transformers.Expr)
 
-trait Converters {
+trait Converters[I, T] {
+
+  def buildConverter(conf: Config): ToSimpleFeatureConverter[I, T]
 
   def buildFields(fields: Seq[Config]): IndexedSeq[Field] =
     fields.map { f =>
       val name = f.getString("name")
-      val transform = Transformers.parse(f.getString("transform"))
+      val transform = Transformers.parseTransform(f.getString("transform"))
       Field(name, transform)
     }.toIndexedSeq
 
-  def buildIdBuilder(t: String) = Transformers.parse(t)
+  def buildIdBuilder(t: String) = Transformers.parseTransform(t)
 
   def findTargetSFT(name: String): SimpleFeatureType = {
     val fileName = s"sft_${name}.conf"
     val conf = ConfigFactory.load(fileName)
     buildSpec(conf)
+  }
+
+  def buildCompositeConverter(origConf: Config): CompositeConverter[I, T] = {
+    val conf = origConf.getConfig("composite-converter")
+    val converters: Seq[(Predicate, ToSimpleFeatureConverter[I, T])] =
+      conf.getConfigList("converters").map { c =>
+        val pred = Transformers.parsePred(c.getString("predicate"))
+        val converter = buildConverter(conf.getConfig(c.getString("converter")))
+        (pred, converter)
+      }
+    new CompositeConverter[I, T](findTargetSFT(conf.getString("type-name")), converters)
   }
 
   def buildSpec(c: Config) = {
@@ -50,7 +63,12 @@ trait Converters {
 
 }
 
-trait ToSimpleFeatureConverter[I, T] {
+trait SimpleFeatureConverter[I, T] {
+  def targetSFT: SimpleFeatureType
+  def processInput(is: Iterator[I]): Iterator[SimpleFeature]
+}
+
+trait ToSimpleFeatureConverter[I, T] extends SimpleFeatureConverter[I, T] {
   def targetSFT: SimpleFeatureType
   def inputFields: IndexedSeq[Field]
   def idBuilder: Expr
@@ -82,14 +100,16 @@ trait ToSimpleFeatureConverter[I, T] {
   }
 
   def applyTransform(fn: Expr, t: T): Any
+  def applyPredicate(pred: Predicate, t: T): Boolean
 
-  def processInput(is: Iterator[I]): Iterator[SimpleFeature] = {
-    val reuse = Array.ofDim[Any](inputFields.length)
-    val sfReuse = Array.ofDim[Any](targetSFT.getAttributeCount)
-    is.map { s =>
-      convert(fromInputType(s), reuse, sfReuse)
-    }
-  }
+  val reuse = Array.ofDim[Any](inputFields.length)
+  val sfAttrReuse = Array.ofDim[Any](targetSFT.getAttributeCount)
+
+  def processSingleInput(i: I): SimpleFeature =
+    convert(fromInputType(i), reuse, sfAttrReuse)
+
+  def processInput(is: Iterator[I]): Iterator[SimpleFeature] =
+    is.map { s => processSingleInput(s) }
 
   val indexes =
     targetSFT.getAttributeDescriptors.flatMap { attr =>

@@ -3,13 +3,16 @@ package org.locationtech.geomesa.convert.text
 import com.google.common.base.Splitter
 import com.google.common.collect.ObjectArrays
 import com.typesafe.config.Config
-import org.locationtech.geomesa.convert.Transformers.Expr
+import org.locationtech.geomesa.convert.Transformers.{Expr, Predicate}
 import org.locationtech.geomesa.convert.{Converters, Field, ToSimpleFeatureConverter}
 import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.collection.JavaConversions._
 
-object DelimitedTextConverterBuilder extends Converters {
+object DelimitedTextConverterBuilder extends Converters[String, Array[String]] {
+
+  def buildConverter(conf: Config): DelimitedTextConverter = apply(conf)
+
   def apply(conf: Config): DelimitedTextConverter = {
     val delimiter = conf.getString("delimiter")
     val fields    = buildFields(conf.getConfigList("fields"))
@@ -30,4 +33,6 @@ class DelimitedTextConverter(delimiter: String, val targetSFT: SimpleFeatureType
   }
 
   override def applyTransform(fn: Expr, t: Array[String]): Any = fn.eval(t: _*)
+
+  override def applyPredicate(pred: Predicate, t: Array[String]): Boolean = pred.eval(t: _*)
 }

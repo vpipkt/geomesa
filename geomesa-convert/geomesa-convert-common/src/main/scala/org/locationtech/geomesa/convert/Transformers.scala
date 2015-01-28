@@ -29,7 +29,7 @@ object Transformers extends JavaTokenParsers {
     def string      = "'" ~> "[^']+".r <~ "'".r ^^ { s => LitString(s) }
     def int         = wholeNumber ^^ { i => LitInt(i.toInt) }
     def double      = decimalNumber ^^ { d => LitDouble(d.toDouble) }
-    def lit         = string | double | int
+    def lit         = string | int | double
     def wholeRecord = "$0" ^^ { _ => WholeRecord }
     def regexExpr   = string <~ "::r" ^^ { case LitString(s) => RegexExpr(s) }
     def column      = "$" ~> "[1-9][0-9]*".r ^^ { i => Col(i.toInt) }
@@ -40,6 +40,51 @@ object Transformers extends JavaTokenParsers {
     def fn          = (fnName <~ OPEN_PAREN) ~ (repsep(transformExpr, ",") <~ CLOSE_PAREN) ^^ {
       case LitString(name) ~ e => FunctionExpr(functionMap(name).build(name), e)
     }
+    def strEq       = ("strEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => StrEQ(l, r)
+    }
+    def intEq       = ("intEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => IntEQ(l, r)
+    }
+    def intLTEq     = ("intLTEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => IntLTEQ(l, r)
+    }
+    def intLT       = ("intLT" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => IntLT(l, r)
+    }
+    def intGTEq     = ("intGTEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => IntGTEQ(l, r)
+    }
+    def intGT       = ("intGT" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => IntGT(l, r)
+    }
+    def dEq       = ("dEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => DEQ(l, r)
+    }
+    def dLTEq     = ("dLTEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => DLTEQ(l, r)
+    }
+    def dLT       = ("dLT" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => DLT(l, r)
+    }
+    def dGTEq     = ("dGTEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => DGTEQ(l, r)
+    }
+    def dGT       = ("dGT" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => DGT(l, r)
+    }
+    def binaryPred  = strEq | intEq | intLTEq | intLT | intGTEq | intGT | dEq | dLTEq | dLT | dGTEq | dGT
+    def andPred     = ("and" ~ OPEN_PAREN) ~> (pred ~ "," ~ pred) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => And(l, r)
+    }
+    def orPred      = ("or" ~ OPEN_PAREN) ~> (pred ~ "," ~ pred) <~ CLOSE_PAREN ^^ {
+      case l ~ "," ~ r => Or(l, r)
+    }
+    def notPred     = ("not" ~ OPEN_PAREN) ~> pred <~ CLOSE_PAREN ^^ {
+      case pred => Not(pred)
+    }
+    def logicPred = andPred | orPred | notPred
+    def pred: Parser[Predicate] = binaryPred | logicPred
     def expr = fn | wholeRecord | regexExpr | fieldLookup | column | lit
     def transformExpr: Parser[Expr] = cast2double | cast2int | expr
   }
@@ -64,15 +109,19 @@ object Transformers extends JavaTokenParsers {
   case class Cast2Int(e: Expr) extends Expr {
     override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = e.eval(args: _*).asInstanceOf[String].toInt
   }
+
   case class Cast2Double(e: Expr) extends Expr {
     override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = e.eval(args: _*).asInstanceOf[String].toDouble
   }
+
   case object WholeRecord extends Expr {
     override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = args(0)
   }
+
   case class Col(i: Int) extends Expr {
     override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = args(i)
   }
+
   case class FieldLookup(n: String) extends Expr {
     var idx = -1
     override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = {
@@ -80,15 +129,56 @@ object Transformers extends JavaTokenParsers {
       ctx.lookup(idx)
     }
   }
+
   case class RegexExpr(s: String) extends Expr {
     val compiled = s.r
     override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = compiled
   }
+
   case class FunctionExpr(f: TransformerFn, arguments: Seq[Expr]) extends Expr {
     override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = f.eval(arguments.map(_.eval(args: _*)): _*)
   }
 
-  def parse(s: String): Expr = parse(TransformerParser.transformExpr, s).get
+  sealed trait Predicate {
+    def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean
+  }
+
+  class BinaryPredicate[T](left: Expr, right: Expr, isEqual: (T, T) => Boolean) extends Predicate {
+    override def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean = eval(left, right, args: _*)
+
+    def eval(left: Expr, right: Expr, args: Any*)(implicit ctx: EvaluationContext): Boolean =
+      isEqual(left.eval(args: _*).asInstanceOf[T], right.eval(args: _*).asInstanceOf[T])
+  }
+
+  def buildPred[T](f: (T, T) => Boolean): (Expr, Expr) => BinaryPredicate[T] = new BinaryPredicate[T](_, _, f)
+
+  val StrEQ    = buildPred[String](_.equals(_))
+  val IntEQ    = buildPred[Int](_ == _)
+  val IntLTEQ  = buildPred[Int](_ <= _)
+  val IntLT    = buildPred[Int](_ < _)
+  val IntGTEQ  = buildPred[Int](_ >= _)
+  val IntGT    = buildPred[Int](_ > _)
+  val DEQ      = buildPred[Double](_ == _)
+  val DLTEQ    = buildPred[Double](_ <= _)
+  val DLT      = buildPred[Double](_ < _)
+  val DGTEQ    = buildPred[Double](_ >= _)
+  val DGT      = buildPred[Double](_ > _)
+  
+  case class Not(p: Predicate) extends Predicate {
+    override def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean = !p.eval(args: _*)
+  }
+
+  class BinaryLogicPredicate(l: Predicate, r: Predicate, f: (Boolean, Boolean) => Boolean) extends Predicate {
+    override def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean = f(l.eval(args: _*), r.eval(args: _*))
+  }
+
+  def buildBinaryLogicPredicate(f: (Boolean, Boolean) => Boolean): (Predicate, Predicate) => BinaryLogicPredicate = new BinaryLogicPredicate(_, _, f)
+
+  val And = buildBinaryLogicPredicate(_ && _)
+  val Or  = buildBinaryLogicPredicate(_ || _)
+
+  def parseTransform(s: String): Expr = parse(TransformerParser.transformExpr, s).get
+  def parsePred(s: String): Predicate = parse(TransformerParser.pred, s).get
 
 }
 
@@ -103,9 +193,14 @@ trait TransformerFunctionFactory {
 
 class StringFunctionFactory extends TransformerFunctionFactory {
 
-  override def functions: Seq[String] = Seq("trim", "capitalize", "lowercase", "regexReplace", "concat")
+  override def functions: Seq[String] =
+    Seq("trim", "capitalize", "lowercase", "regexReplace", "concat", "substr", "strlen")
 
   def build(name: String) = name match {
+    case "strlen" =>
+      val f: (Any*) => Any = args => args(0).asInstanceOf[String].length
+      StringFn(f)
+
     case "trim" =>
       val f: (Any*) => Any = args => args(0).asInstanceOf[String].trim
       StringFn(f)
@@ -124,6 +219,10 @@ class StringFunctionFactory extends TransformerFunctionFactory {
 
     case "concat" =>
       val f: (Any*) => Any = args => args(0).asInstanceOf[String] + args(1).asInstanceOf[String]
+      StringFn(f)
+
+    case "substr" =>
+      val f: (Any*) => Any = args => args(0).asInstanceOf[String].substring(args(1).asInstanceOf[Int], args(2).asInstanceOf[Int])
       StringFn(f)
 
     case e =>
