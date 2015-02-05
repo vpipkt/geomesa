@@ -29,7 +29,7 @@ import org.joda.time.{DateTime, DateTimeZone, Interval}
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index.{Constants, QueryHints}
-import org.locationtech.geomesa.core.iterators.TemporalDensityIterator.{ENCODED_TIME_SERIES, decodeTimeSeries}
+import org.locationtech.geomesa.core.iterators.TemporalDensityIterator.{TimeSeries, ENCODED_TIME_SERIES, decodeTimeSeries}
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
@@ -129,7 +129,7 @@ class TemporalDensityIteratorTest extends Specification {
       val sf = iter.head.asInstanceOf[SimpleFeature]
       iter must not beNull
 
-      val timeSeries = decodeTimeSeries(sf.getAttribute(ENCODED_TIME_SERIES).asInstanceOf[String])
+      val timeSeries: TimeSeries = decodeTimeSeries(sf.getAttribute(ENCODED_TIME_SERIES).asInstanceOf[String])
       val totalCount = timeSeries.map { case (dateTime, count) => count}.sum
 
       totalCount should be equalTo 150

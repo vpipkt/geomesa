@@ -183,7 +183,7 @@ module.exports = function (grunt) {
         server: {
             options: {
                 base: '<%= buildDir %>/',
-                port: grunt.option('port') || 8080,
+                port: grunt.option('port') || 9090,
                 hostname: '0.0.0.0'
             }
         }

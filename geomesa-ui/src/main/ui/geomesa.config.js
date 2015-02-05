@@ -3,6 +3,8 @@
 module.exports = {
     
     // Where the project is build during development.
+    //buildDir: '../../../../../../tools/tomcat7/webapps/dist/',
+  
     buildDir: '../../../dist',
 
     // The location of the html page that will be built.

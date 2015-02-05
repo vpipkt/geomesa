@@ -106,7 +106,7 @@ class AccumuloDataStoreFactory extends DataStoreFactorySpi {
                   "Found multiple AuthorizationsProvider implementations. Please specify the one " +
                   "to use with the system property " +
                   s"'${AuthorizationsProvider.AUTH_PROVIDER_SYS_PROPERTY}' :: " +
-                  s"${providers.map(_.getClass.getName).mkString(", ")}"
+                  s"${providers.map(_.getClass.getName).mkString(", ")}MapReduceRecordWriter"
                 throw new IllegalStateException(message)
             }
         }
