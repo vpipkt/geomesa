@@ -47,9 +47,15 @@
         <jackson.codehaus.version>1.9.3</jackson.codehaus.version>
 
         <!-- environment-dependent versions -->
-        <zookeeper.version>3.4.5</zookeeper.version>
-        <accumulo.version>1.5.1</accumulo.version>
-        <hadoop.version>2.2.0</hadoop.version>
+        <zookeeper.version>3.4.5.2.1.5.0-695</zookeeper.version>
+        <accumulo.version>1.5.1.2.1.5.0-695</accumulo.version>
+        <hadoop.version>2.4.0.2.1.5.0-695</hadoop.version>
+
+        <!--<zookeeper.version>3.4.5</zookeeper.version>-->
+        <!--<accumulo.version>1.5.1</accumulo.version>-->
+        <!--<hadoop.version>2.2.0</hadoop.version>-->
+
+
         <scalding.version>0.11.2</scalding.version>
 
         <!-- logging properties
@@ -993,6 +999,25 @@
             <id>conjars.org</id>
             <url>http://conjars.org/repo</url>
         </repository>
+
+
+            <repository>
+                <releases>
+                    <enabled>true</enabled>
+                    <updatePolicy>always</updatePolicy>
+                    <checksumPolicy>warn</checksumPolicy>
+                </releases>
+                <snapshots>
+                    <enabled>false</enabled>
+                    <updatePolicy>never</updatePolicy>
+                    <checksumPolicy>fail</checksumPolicy>
+                </snapshots>
+                <id>HDPReleases</id>
+                <name>HDP Releases</name>
+                <url>http://repo.hortonworks.com/content/repositories/releases/</url>
+                <layout>default</layout>
+            </repository>
+
     </repositories>
 
 </project>
