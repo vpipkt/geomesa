@@ -26,10 +26,11 @@ import org.apache.accumulo.core.client.mapreduce.AccumuloInputFormat
 import org.apache.accumulo.core.client.mapreduce.lib.util.{ConfiguratorBase, InputConfigurator}
 import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.hadoop.conf.Configuration
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.serializer.KryoRegistrator
 import org.apache.spark.{SparkConf, SparkContext}
-import org.geotools.data.{DataStore, Query}
+import org.geotools.data.{DataStoreFinder, DataStore, Query}
 import org.geotools.factory.CommonFactoryFinder
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index.{IndexSchema, STIdxStrategy}
@@ -90,6 +91,11 @@ object GeoMesaSpark {
     }
     val groupedByDay = dayAndFeature.groupBy { case (date, _) => date }
     groupedByDay.map { case (date, iter) => (date, iter.size) }
+  }
+
+  def getBroadcast(parameters: Map[String, String], sc: SparkContext): Broadcast[AccumuloDataStore] = {
+    val ds = DataStoreFinder.getDataStore(parameters).asInstanceOf[AccumuloDataStore]
+    sc.broadcast(ds)
   }
 
 }
