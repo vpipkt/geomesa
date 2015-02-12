@@ -55,6 +55,11 @@ object GeoMesaSpark {
   def typeProp(typeName: String) = s"geomesa.types.$typeName"
   def jOpt(typeName: String, spec: String) = s"-D${typeProp(typeName)}=$spec"
 
+  def rdd(conf: Configuration, sc: SparkContext, parameters: Map[String, String], query: Query): RDD[SimpleFeature] = {
+    val ds = DataStoreFinder.getDataStore(parameters).asInstanceOf[AccumuloDataStore]
+    rdd(conf, sc, ds, query)
+  }
+
   def rdd(conf: Configuration, sc: SparkContext, ds: AccumuloDataStore, query: Query): RDD[SimpleFeature] = {
     val typeName = query.getTypeName
     val sft = ds.getSchema(typeName)
