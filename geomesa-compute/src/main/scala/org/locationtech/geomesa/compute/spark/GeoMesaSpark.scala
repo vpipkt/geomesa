@@ -30,8 +30,10 @@ import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.serializer.KryoRegistrator
 import org.apache.spark.{SparkConf, SparkContext}
+import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.data.{DataStoreFinder, DataStore, Query}
 import org.geotools.factory.CommonFactoryFinder
+import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index.{IndexSchema, STIdxStrategy}
 import org.locationtech.geomesa.feature.{AvroFeatureDecoder, AvroFeatureEncoder, SimpleFeatureEncoder, AvroSimpleFeature}
@@ -55,9 +57,37 @@ object GeoMesaSpark {
   def typeProp(typeName: String) = s"geomesa.types.$typeName"
   def jOpt(typeName: String, spec: String) = s"-D${typeProp(typeName)}=$spec"
 
-  def rdd(conf: Configuration, sc: SparkContext, parameters: Map[String, String], query: Query): RDD[SimpleFeature] = {
+  def rdd(conf: Configuration, sc: SparkContext, parameters: collection.Map[String, String], typeName: String, queryString: String): RDD[SimpleFeature] = {
     val ds = DataStoreFinder.getDataStore(parameters).asInstanceOf[AccumuloDataStore]
-    rdd(conf, sc, ds, query)
+    rdd(conf, sc, ds, typeName, queryString)
+  }
+
+  def rdd(conf: Configuration, sc: SparkContext, ds: AccumuloDataStore, typeName: String, queryString: String): RDD[SimpleFeature] = {
+    val sft = ds.getSchema(typeName)
+    val spec = SimpleFeatureTypes.encodeType(sft)
+    val encoder = SimpleFeatureEncoder(sft, ds.getFeatureEncoding(sft))
+    val indexSchema = IndexSchema(ds.getIndexSchemaFmt(typeName), sft, encoder)
+
+    val query = new Query(typeName)
+    val filter = ECQL.toFilter(queryString)
+
+    val planner = new STIdxStrategy
+    val qp = planner.buildSTIdxQueryPlan(query, indexSchema.planner, sft, org.locationtech.geomesa.core.index.ExplainPrintln)
+
+    ConfiguratorBase.setConnectorInfo(classOf[AccumuloInputFormat], conf, ds.connector.whoami(), ds.authToken)
+    ConfiguratorBase.setZooKeeperInstance(classOf[AccumuloInputFormat], conf, ds.connector.getInstance().getInstanceName, ds.connector.getInstance().getZooKeepers)
+
+    InputConfigurator.setInputTableName(classOf[AccumuloInputFormat], conf, ds.getSpatioTemporalIdxTableName(sft))
+    InputConfigurator.setRanges(classOf[AccumuloInputFormat], conf, qp.ranges)
+    qp.iterators.foreach { is => InputConfigurator.addIterator(classOf[AccumuloInputFormat], conf, is) }
+
+    val rdd = sc.newAPIHadoopRDD(conf, classOf[AccumuloInputFormat], classOf[Key], classOf[Value])
+
+    rdd.mapPartitions { iter =>
+      val sft = SimpleFeatureTypes.createType(typeName, spec)
+      val decoder = new AvroFeatureDecoder(sft)
+      iter.map { case (k: Key, v: Value) => decoder.decode(v.get()) }
+    }
   }
 
   def rdd(conf: Configuration, sc: SparkContext, ds: AccumuloDataStore, query: Query): RDD[SimpleFeature] = {
@@ -83,6 +113,16 @@ object GeoMesaSpark {
       val sft = SimpleFeatureTypes.createType(typeName, spec)
       val decoder = new AvroFeatureDecoder(sft)
       iter.map { case (k: Key, v: Value) => decoder.decode(v.get()) }
+    }
+  }
+
+  def save(parameters: collection.Map[String, String], typeName: String, output: Iterator[SimpleFeature]) = {
+    val ds = DataStoreFinder.getDataStore(parameters).asInstanceOf[AccumuloDataStore]
+    val fs = ds.getFeatureSource(typeName).asInstanceOf[AccumuloFeatureStore]
+
+    output.sliding(100).foreach { i =>
+      val features =  new ListFeatureCollection(fs.getSchema, i.toList)
+      fs.addFeatures(features)
     }
   }
 
