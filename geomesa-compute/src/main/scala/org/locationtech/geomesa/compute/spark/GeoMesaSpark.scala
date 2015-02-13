@@ -57,12 +57,12 @@ object GeoMesaSpark {
   def typeProp(typeName: String) = s"geomesa.types.$typeName"
   def jOpt(typeName: String, spec: String) = s"-D${typeProp(typeName)}=$spec"
 
-  def rdd(sc: SparkContext, parameters: collection.Map[String, String], typeName: String, queryString: String, conf: Configuration): RDD[SimpleFeature] = {
+  def rdd(sc: SparkContext, parameters: collection.Map[String, String], typeName: String, queryString: String, conf: Configuration = new Configuration): RDD[SimpleFeature] = {
     val ds = DataStoreFinder.getDataStore(parameters).asInstanceOf[AccumuloDataStore]
     rdd(sc, ds, typeName, queryString, conf)
   }
 
-  def rdd(sc: SparkContext, ds: AccumuloDataStore, typeName: String, queryString: String, conf: Configuration = new Configuration): RDD[SimpleFeature] = {
+  def rdd(sc: SparkContext, ds: AccumuloDataStore, typeName: String, queryString: String, conf: Configuration): RDD[SimpleFeature] = {
     val sft = ds.getSchema(typeName)
     val spec = SimpleFeatureTypes.encodeType(sft)
     val encoder = SimpleFeatureEncoder(sft, ds.getFeatureEncoding(sft))
@@ -90,7 +90,7 @@ object GeoMesaSpark {
     }
   }
 
-  def rdd(sc: SparkContext, ds: AccumuloDataStore, query: Query, conf: Configuration = new Configuration): RDD[SimpleFeature] = {
+  def originalrdd(sc: SparkContext, ds: AccumuloDataStore, query: Query, conf: Configuration = new Configuration): RDD[SimpleFeature] = {
     val typeName = query.getTypeName
     val sft = ds.getSchema(typeName)
     val spec = SimpleFeatureTypes.encodeType(sft)
@@ -127,7 +127,7 @@ object GeoMesaSpark {
   }
 
   def countByDay(sccc: SparkContext, ds: AccumuloDataStore, query: Query, dateField: String = "dtg") = {
-    val d = rdd(sccc, ds, query)
+    val d = originalrdd(sccc, ds, query)
     val dayAndFeature = d.mapPartitions { iter =>
       val df = new SimpleDateFormat("yyyyMMdd")
       val ff = CommonFactoryFinder.getFilterFactory2
