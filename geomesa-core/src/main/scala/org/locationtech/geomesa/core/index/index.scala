@@ -41,6 +41,7 @@ package object index {
   val SF_PROPERTY_START_TIME = SimpleFeatureTypes.DEFAULT_DATE_FIELD
   val SF_PROPERTY_END_TIME   = "geomesa_index_end_time"
   val SFT_INDEX_SCHEMA       = "geomesa_index_schema"
+  val SFT_TIME_INDEX_SCHEMA  = "geomesa_time_index_schema"
   val SF_TABLE_SHARING       = "geomesa_table_sharing"
 
   // wrapping function in option to protect against incorrect values in SF_PROPERTY_START_TIME
@@ -59,6 +60,11 @@ package object index {
 
   def getIndexSchema(sft: SimpleFeatureType) = Option(sft.getUserData.get(SFT_INDEX_SCHEMA)).map { _.toString }
   def setIndexSchema(sft: SimpleFeatureType, indexSchema: String) {
+    sft.getUserData.put(SFT_INDEX_SCHEMA, indexSchema)
+  }
+
+  def getTimeIndexSchema(sft: SimpleFeatureType) = Option(sft.getUserData.get(SFT_INDEX_SCHEMA)).map { _.toString }
+  def setTimeIndexSchema(sft: SimpleFeatureType, indexSchema: String) {
     sft.getUserData.put(SFT_INDEX_SCHEMA, indexSchema)
   }
 

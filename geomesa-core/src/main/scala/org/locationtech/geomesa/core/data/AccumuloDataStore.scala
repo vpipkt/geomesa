@@ -109,6 +109,20 @@ class AccumuloDataStore(val connector: Connector,
       .id()
       .build()
 
+  // equivalent to: s"%~#s%$maxShard#r%${name}#cstr%yyyyMMdd#d%0,2#gh::%~#s%HH#d::%~#s%#id"
+  def buildDefaultTimeIndexSchema(name: String, maxShard: Int = DEFAULT_MAX_SHARD): String =
+    new IndexSchemaBuilder("~")
+        .randomNumber(maxShard)
+        .indexOrDataFlag()
+        .constant(name)
+        .date("yyyyMMdd")
+        .geoHash(0, 2)
+        .nextPart()
+        .date("HH")
+        .nextPart()
+        .id()
+        .build()
+
   Hints.putSystemDefault(Hints.FORCE_LONGITUDE_FIRST_AXIS_ORDER, true)
 
   private val validated = new mutable.HashMap[String, String]()
@@ -136,7 +150,8 @@ class AccumuloDataStore(val connector: Connector,
    */
   private def writeMetadata(sft: SimpleFeatureType,
                             fe: FeatureEncoding,
-                            spatioTemporalSchemaValue: String) {
+                            spatioTemporalSchemaValue: String,
+                            timeIndexSchemaValue: String) {
 
     // compute the metadata values
     val attributesValue = SimpleFeatureTypes.encodeType(sft)
@@ -153,6 +168,7 @@ class AccumuloDataStore(val connector: Connector,
     }
     val featureEncodingValue        = /*_*/fe.toString/*_*/
     val spatioTemporalIdxTableValue = formatSpatioTemporalIdxTableName(catalogTable, sft)
+    val timeIndexTableValue         = formatTimeIndexTableName(catalogTable, sft)
     val attrIdxTableValue           = formatAttrIdxTableName(catalogTable, sft)
     val recordTableValue            = formatRecordTableName(catalogTable, sft)
     val queriesTableValue           = formatQueriesTableName(catalogTable, sft)
@@ -161,18 +177,21 @@ class AccumuloDataStore(val connector: Connector,
     val dataStoreVersion            = INTERNAL_GEOMESA_VERSION.toString
 
     // store each metadata in the associated key
-    val attributeMap = Map(ATTRIBUTES_KEY        -> attributesValue,
-                           SCHEMA_KEY            -> spatioTemporalSchemaValue,
-                           DTGFIELD_KEY          -> dtgFieldValue,
-                           FEATURE_ENCODING_KEY  -> featureEncodingValue,
-                           VISIBILITIES_KEY      -> writeVisibilities,
-                           ST_IDX_TABLE_KEY      -> spatioTemporalIdxTableValue,
-                           ATTR_IDX_TABLE_KEY    -> attrIdxTableValue,
-                           RECORD_TABLE_KEY      -> recordTableValue,
-                           QUERIES_TABLE_KEY     -> queriesTableValue,
-                           SHARED_TABLES_KEY     -> tableSharingValue,
-                           VERSION_KEY           -> dataStoreVersion
-                       )
+    val attributeMap = Map(
+      ATTRIBUTES_KEY        -> attributesValue,
+      SCHEMA_KEY            -> spatioTemporalSchemaValue,
+      TIME_SCHEMA_KEY       -> timeIndexSchemaValue,
+      DTGFIELD_KEY          -> dtgFieldValue,
+      FEATURE_ENCODING_KEY  -> featureEncodingValue,
+      VISIBILITIES_KEY      -> writeVisibilities,
+      ST_IDX_TABLE_KEY      -> spatioTemporalIdxTableValue,
+      TIME_IDX_TABLE_KEY    -> timeIndexTableValue,
+      ATTR_IDX_TABLE_KEY    -> attrIdxTableValue,
+      RECORD_TABLE_KEY      -> recordTableValue,
+      QUERIES_TABLE_KEY     -> queriesTableValue,
+      SHARED_TABLES_KEY     -> tableSharingValue,
+      VERSION_KEY           -> dataStoreVersion
+    )
 
     val featureName = getFeatureName(sft)
     metadata.insert(featureName, attributeMap)
@@ -280,7 +299,6 @@ class AccumuloDataStore(val connector: Connector,
     queriesTableValue
   }
 
-
   /**
    * Read SpatioTemporal Index table name from store metadata
    */
@@ -355,10 +373,8 @@ class AccumuloDataStore(val connector: Connector,
   }
 
   // Retrieves or computes the indexSchema
-  def computeSpatioTemporalSchema(sft: SimpleFeatureType, maxShard: Int): String = {
-    val spatioTemporalIdxSchemaFmt: Option[String] = core.index.getIndexSchema(sft)
-
-    spatioTemporalIdxSchemaFmt match {
+  def computeSpatioTemporalSchema(sft: SimpleFeatureType, maxShard: Int): String =
+    core.index.getIndexSchema(sft) match {
       case None => buildDefaultSpatioTemporalSchema(getFeatureName(sft), maxShard)
       case Some(schema) =>
         if (maxShard != DEFAULT_MAX_SHARD) {
@@ -367,7 +383,17 @@ class AccumuloDataStore(val connector: Connector,
         }
         schema
     }
-  }
+
+  def computeTimeIndexSchema(sft: SimpleFeatureType, maxShard: Int): String =
+    core.index.getTimeIndexSchema(sft) match {
+      case None => buildDefaultTimeIndexSchema(getFeatureName(sft), maxShard)
+      case Some(schema) =>
+        if (maxShard != DEFAULT_MAX_SHARD) {
+          logger.warn("Calling create schema with a custom time index format AND a custom shard number. " +
+              "The custom index format will take precedence.")
+        }
+        schema
+    }
 
   /**
    * Compute the GeoMesa SpatioTemporal Schema, create tables, and write metadata to catalog.
@@ -379,9 +405,10 @@ class AccumuloDataStore(val connector: Connector,
   def createSchema(featureType: SimpleFeatureType, maxShard: Int) =
     if (getSchema(featureType.getTypeName) == null) {
       val spatioTemporalSchema = computeSpatioTemporalSchema(featureType, maxShard)
+      val timeIndexSchema = computeTimeIndexSchema(featureType, maxShard)
       checkSchemaRequirements(featureType, spatioTemporalSchema)
       createTablesForType(featureType, maxShard)
-      writeMetadata(featureType, featureEncoding, spatioTemporalSchema)
+      writeMetadata(featureType, featureEncoding, spatioTemporalSchema, timeIndexSchema)
     }
 
   // This function enforces the shared ST schema requirements.
@@ -876,6 +903,10 @@ class AccumuloDataStore(val connector: Connector,
     createSpatioTemporalIdxScanner(sft, numThreads)
   }
 
+  def createTimeIndexScanner(sft: SimpleFeatureType, numThreads: Option[Int] = None) = {
+
+  }
+
   /**
    * Create a Scanner for the Attribute Table (Inverted Index Table)
    */
@@ -937,6 +968,9 @@ object AccumuloDataStore {
    */
   def formatSpatioTemporalIdxTableName(catalogTable: String, featureType: SimpleFeatureType) =
     formatTableName(catalogTable, featureType, TableSuffix.STIdx)
+
+  def formatTimeIndexTableName(catalogTable: String, featureType: SimpleFeatureType) =
+    formatTableName(catalogTable, featureType, TableSuffix.TimeIndex)
 
   /**
    * Format attribute index table name for Accumulo...table name is stored in metadata for other usage

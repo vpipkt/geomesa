@@ -37,6 +37,11 @@ trait AccumuloConnectorCreator extends Logging {
   /**
    * Create a Scanner for the Attribute Table (Inverted Index Table)
    */
+  def createTimeIndexScanner(sft: SimpleFeatureType, numThreads: Option[Int] = None): Scanner
+
+  /**
+   * Create a Scanner for the Attribute Table (Inverted Index Table)
+   */
   def createAttrIdxScanner(sft: SimpleFeatureType): Scanner
 
   /**

@@ -48,11 +48,13 @@ import scala.collection.JavaConversions._
   val SPATIAL_BOUNDS_KEY     = "bounds"
   val TEMPORAL_BOUNDS_KEY    = "time.bounds"
   val SCHEMA_KEY             = "schema"
+  val TIME_SCHEMA_KEY        = "schema.time"
   val DTGFIELD_KEY           = "dtgfield"
   val FEATURE_ENCODING_KEY   = "featureEncoding"
   val VISIBILITIES_KEY       = "visibilities"
   val VISIBILITIES_CHECK_KEY = "visibilitiesCheck"
   val ST_IDX_TABLE_KEY       = "tables.idx.st.name"
+  val TIME_IDX_TABLE_KEY     = "tables.idx.time.name"
   val ATTR_IDX_TABLE_KEY     = "tables.idx.attr.name"
   val RECORD_TABLE_KEY       = "tables.record.name"
   val QUERIES_TABLE_KEY      = "tables.queries.name"
@@ -93,8 +95,9 @@ import scala.collection.JavaConversions._
       .getOrElse(DEFAULT_DTG_PROPERTY_NAME)
 
   object TableSuffix {
-    val STIdx   = "st_idx"
-    val Records = "records"
-    val AttrIdx = "attr_idx"
+    val STIdx     = "st_idx"
+    val TimeIndex = "time_idx"
+    val Records   = "records"
+    val AttrIdx   = "attr_idx"
   }
 }

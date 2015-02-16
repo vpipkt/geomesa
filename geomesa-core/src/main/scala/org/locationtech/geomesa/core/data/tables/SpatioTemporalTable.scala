@@ -67,14 +67,17 @@ object SpatioTemporalTable extends Logging {
       }
     }
 
-  def deleteFeaturesFromTable(conn: Connector, bd: BatchDeleter, sft: SimpleFeatureType): Unit = {
-    val MIN_START = "\u0000"
-    val MAX_END = "~"
-
+  def deleteFeaturesFromTable(bd: BatchDeleter, sft: SimpleFeatureType): Unit = {
     val schema = getIndexSchema(sft).getOrElse {
       val msg = s"Cannot delete ${sft.getTypeName}. SFT does not have its index schema stored."
       throw new Exception(msg)
     }
+    deleteFeaturesFromTable(bd, schema)
+  }
+
+  protected[tables] def deleteFeaturesFromTable(bd: BatchDeleter, schema: String): Unit = {
+    val MIN_START = "\u0000"
+    val MAX_END = "~"
 
     val (rowf, _,_) = IndexSchema.parse(IndexSchema.formatter, schema).get
     val planners = rowf.lf match {
@@ -86,10 +89,10 @@ object SpatioTemporalTable extends Logging {
         Seq(rpp, ip, csp)
 
       case _ =>
-        throw new RuntimeException(s"Cannot delete ${sft.getTypeName}. SFT has an invalid schema structure.")
+        throw new RuntimeException(s"Cannot delete index table. SFT has an invalid schema structure.")
     }
 
-    val planner =  CompositePlanner(planners, "~")
+    val planner = CompositePlanner(planners, "~")
     val keyPlans =
       Seq(true, false).map(indexOnly => planner.getKeyPlan(AcceptEverythingFilter, indexOnly, ExplainNull))
 
@@ -97,7 +100,7 @@ object SpatioTemporalTable extends Logging {
       kp match {
         case KeyRanges(rs) => rs.map(r => new data.Range(r.start + "~" + MIN_START, r.end + "~" + MAX_END))
         case _ =>
-          logger.error(s"Keyplanner failed to build range properly.")
+          logger.error(s"KeyPlanner failed to build range properly.")
           Seq.empty
       }
     }.flatten
@@ -105,6 +108,5 @@ object SpatioTemporalTable extends Logging {
     bd.setRanges(ranges.asJavaCollection)
     bd.delete()
     bd.close()
-
   }
 }
