@@ -260,6 +260,18 @@ class AccumuloDataStore(val connector: Connector,
     }
 
   /**
+   * Read SpatioTemporal Index table name from store metadata
+   */
+  def getTimeIndexTableName(featureType: SimpleFeatureType): String =
+    getTimeIndexTableName(featureType.getTypeName)
+
+  /**
+   * Read SpatioTemporal Index table name from store metadata
+   */
+  def getTimeIndexTableName(featureName: String): String =
+    metadata.readRequired(featureName, TIME_IDX_TABLE_KEY)
+
+  /**
    * Read Attribute Index table name from store metadata
    */
   def getAttrIdxTableName(featureType: SimpleFeatureType): String =
@@ -305,6 +317,15 @@ class AccumuloDataStore(val connector: Connector,
   def getSpatioTemporalMaxShard(sft: SimpleFeatureType): Int = {
     val indexSchemaFmt = metadata.read(sft.getTypeName, SCHEMA_KEY)
       .getOrElse(throw new RuntimeException(s"Unable to find required metadata property for $SCHEMA_KEY"))
+    val fe = SimpleFeatureEncoder(sft, getFeatureEncoding(sft))
+    val indexSchema = IndexSchema(indexSchemaFmt, sft, fe)
+    indexSchema.maxShard
+  }
+
+  def getTimeIndexMaxShard(sft: SimpleFeatureType): Int = {
+    // TODO back compatibility
+    val indexSchemaFmt = metadata.read(sft.getTypeName, TIME_SCHEMA_KEY)
+        .getOrElse(throw new RuntimeException(s"Unable to find required metadata property for $TIME_SCHEMA_KEY"))
     val fe = SimpleFeatureEncoder(sft, getFeatureEncoding(sft))
     val indexSchema = IndexSchema(indexSchemaFmt, sft, fe)
     indexSchema.maxShard
@@ -474,7 +495,7 @@ class AccumuloDataStore(val connector: Connector,
     val stBatchDeleter =
       connector.createBatchDeleter(stTableName, authorizationsProvider.getAuthorizations, numThreads, defaultBWConfig)
 
-    SpatioTemporalTable.deleteFeaturesFromTable(connector, stBatchDeleter, sft)
+    SpatioTemporalTable.deleteFeaturesFromTable(stBatchDeleter, sft)
 
     val atBatchDeleter =
       connector.createBatchDeleter(attrTableName, authorizationsProvider.getAuthorizations, numThreads, defaultBWConfig)
@@ -903,8 +924,19 @@ class AccumuloDataStore(val connector: Connector,
     createSpatioTemporalIdxScanner(sft, numThreads)
   }
 
-  def createTimeIndexScanner(sft: SimpleFeatureType, numThreads: Option[Int] = None) = {
-
+  /**
+   * Create a scanner for the time index table
+   *
+   * @param sft
+   * @param numThreads
+   * @return
+   */
+  override def createTimeIndexScanner(sft: SimpleFeatureType, numThreads: Option[Int] = None) = {
+    val threads = numThreads.orElse(queryThreadsConfig)
+        .getOrElse(Math.min(MAX_QUERY_THREADS, Math.max(MIN_QUERY_THREADS, getTimeIndexMaxShard(sft))))
+    val table = getTimeIndexTableName(sft)
+    val auths = authorizationsProvider.getAuthorizations
+    connector.createBatchScanner(table, auths, threads)
   }
 
   /**
@@ -944,7 +976,7 @@ class AccumuloDataStore(val connector: Connector,
    */
   private def getFeatureName(featureType: SimpleFeatureType) = featureType.getName.getLocalPart
 
-  override def strategyHints(sft: SimpleFeatureType) = new UserDataStrategyHints()
+  override def strategyHints(sft: SimpleFeatureType) = new StaticStrategyHints()
 }
 
 object AccumuloDataStore {

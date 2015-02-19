@@ -37,12 +37,14 @@ import org.locationtech.geomesa.core.util.{SelfClosingBatchScanner, SelfClosingI
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter.Filter
-import org.opengis.filter.expression.{Expression, Literal, PropertyName}
+import org.opengis.filter.expression.Literal
 import org.opengis.filter.spatial.{BBOX, BinarySpatialOperator}
 
 import scala.util.Try
 
 class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
+
+  import org.locationtech.geomesa.core.index.STIdxStrategy._
 
   def execute(acc: AccumuloConnectorCreator,
               iqp: QueryPlanner,
@@ -84,7 +86,7 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
     // TODO: Select only the geometry filters which involve the indexed geometry type.
     // https://geomesa.atlassian.net/browse/GEOMESA-200
     // Simiarly, we should only extract temporal filters for the index date field.
-    val (geomFilters, otherFilters) = partitionGeom(query.getFilter)
+    val (geomFilters, otherFilters) = partitionGeom(query.getFilter, featureType)
     val (temporalFilters, ecqlFilters) = partitionTemporal(otherFilters, dtgField)
 
     val ecql = filterListAsAnd(ecqlFilters).map(ECQL.toCQL)
@@ -93,31 +95,14 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
     output(s"Temporal filters: $temporalFilters")
     output(s"Other filters: $ecqlFilters")
 
-    val tweakedGeoms = geomFilters.map(updateTopologicalFilters(_, featureType))
+    val (tweakedGeoms, geometryToCover) = getGeometryToCover(geomFilters, featureType)
 
     output(s"Tweaked geom filters are $tweakedGeoms")
-
-    // standardize the two key query arguments:  polygon and date-range
-    val geomsToCover = tweakedGeoms.flatMap {
-      case bbox: BBOX =>
-        val bboxPoly = bbox.getExpression2.asInstanceOf[Literal].evaluate(null, classOf[Geometry])
-        Seq(bboxPoly)
-      case gf: BinarySpatialOperator =>
-        extractGeometry(gf)
-      case _ => Seq()
-    }
-
-    val collectionToCover: Geometry = geomsToCover match {
-      case Nil => null
-      case seq: Seq[Geometry] => new GeometryCollection(geomsToCover.toArray, geomsToCover.head.getFactory)
-    }
+    output(s"GeomToCover: $geometryToCover")
 
     val temporal = extractTemporal(dtgField)(temporalFilters)
     val interval = netInterval(temporal)
-    val geometryToCover = netGeom(collectionToCover)
     val filter = buildFilter(geometryToCover, interval)
-
-    output(s"GeomsToCover: $geomsToCover")
 
     val ofilter = filterListAsAnd(tweakedGeoms ++ temporalFilters)
     if (ofilter.isEmpty) logger.warn(s"Querying Accumulo without ST filter.")
@@ -263,35 +248,47 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
   }
 }
 
-object STIdxStrategy {
+object STIdxStrategy extends StrategyProvider with IndexFilterHelpers {
 
   import org.locationtech.geomesa.core.filter.spatialFilters
-  import org.locationtech.geomesa.utils.geotools.Conversions._
 
-  def getSTIdxStrategy(filter: Filter, sft: SimpleFeatureType): Option[Strategy] =
-    if(!spatialFilters(filter)) None
-    else {
+  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints) =
+    if (spatialFilters(filter)) {
       val e1 = filter.asInstanceOf[BinarySpatialOperator].getExpression1
       val e2 = filter.asInstanceOf[BinarySpatialOperator].getExpression2
-      if(isValidSTIdxFilter(sft, e1, e2)) Some(new STIdxStrategy) else None
+      val property = checkOrder(e1, e2)
+      if (property.name == sft.getGeometryDescriptor.getLocalName) {
+        val geomToCover = getGeometryToCover(Seq(filter), sft)._2
+        val cost = hints.spatialCost(geomToCover)
+        Some(StrategyDecision(new STIdxStrategy, cost))
+      } else {
+        None
+      }
+    } else {
+      None
     }
 
-  /**
-   * Ensures the following conditions:
-   *   - there is exactly one 'property name' expression
-   *   - the property is indexed by GeoMesa
-   *   - all other expressions are literals
-   *
-   * @param sft
-   * @param exp
-   * @return
-   */
-  private def isValidSTIdxFilter(sft: SimpleFeatureType, exp: Expression*): Boolean = {
-    val (props, lits) = exp.partition(_.isInstanceOf[PropertyName])
+  def getGeometryToCover(geometryFilters: Seq[Filter], sft: SimpleFeatureType): (Seq[Filter], Geometry) = {
 
-    props.length == 1 &&
-      props.map(_.asInstanceOf[PropertyName].getPropertyName).forall(sft.getDescriptor(_).isIndexed) &&
-      lits.forall(_.isInstanceOf[Literal])
+    val tweakedGeoms = geometryFilters.map(updateTopologicalFilters(_, sft))
+
+    // standardize the two key query arguments:  polygon and date-range
+    val geomsToCover = tweakedGeoms.flatMap {
+      case bbox: BBOX =>
+        val bboxPoly = bbox.getExpression2.asInstanceOf[Literal].evaluate(null, classOf[Geometry])
+        Seq(bboxPoly)
+      case gf: BinarySpatialOperator =>
+        extractGeometry(gf)
+      case _ => Seq()
+    }
+
+    val collectionToCover: Geometry = geomsToCover match {
+      case Nil => null
+      case seq: Seq[Geometry] => new GeometryCollection(geomsToCover.toArray, geomsToCover.head.getFactory)
+    }
+
+    val geometryToCover = netGeom(collectionToCover)
+
+    (tweakedGeoms, geometryToCover)
   }
-
 }

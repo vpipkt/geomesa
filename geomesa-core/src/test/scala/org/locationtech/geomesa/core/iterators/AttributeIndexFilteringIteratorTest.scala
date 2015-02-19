@@ -85,7 +85,7 @@ class AttributeIndexFilteringIteratorTest extends Specification {
 
   val ff = CommonFactoryFinder.getFilterFactory2
 
-  val hints = new UserDataStrategyHints()
+  val hints = new StaticStrategyHints()
 
   "AttributeIndexFilteringIterator" should {
 

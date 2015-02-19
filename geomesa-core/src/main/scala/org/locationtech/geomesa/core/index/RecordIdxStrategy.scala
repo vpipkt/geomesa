@@ -23,6 +23,7 @@ import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.data
 import org.apache.accumulo.core.data.{Key, Value}
 import org.geotools.data.Query
+import org.geotools.factory.CommonFactoryFinder
 import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
 import org.locationtech.geomesa.core.data.tables.RecordTable
@@ -37,9 +38,20 @@ import org.opengis.filter.{Filter, Id}
 import scala.collection.JavaConverters._
 
 
-object RecordIdxStrategy {
-  def getRecordIdxStrategy(filter: Filter, sft: SimpleFeatureType): Option[Strategy] =
-    if (filterIsId(filter)) Some(new RecordIdxStrategy) else None
+object RecordIdxStrategy extends StrategyProvider {
+
+  import scala.collection.JavaConversions._
+
+  val ff = CommonFactoryFinder.getFilterFactory2
+
+  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints) =
+    if (filterIsId(filter)) {
+      val ids = filter.asInstanceOf[Id].getIdentifiers.map(_.toString).toSeq
+      val cost = hints.idCost(ids)
+      Some(StrategyDecision(new RecordIdxStrategy, cost))
+    } else {
+      None
+    }
 
   def intersectIDFilters(filters: Seq[Filter]): Option[Id] = filters.size match {
     case 0 => None                                             // empty filter sequence
@@ -57,6 +69,8 @@ object RecordIdxStrategy {
         Some(newFilter)
       }
     }
+
+
 }
 
 class RecordIdxStrategy extends Strategy with Logging {

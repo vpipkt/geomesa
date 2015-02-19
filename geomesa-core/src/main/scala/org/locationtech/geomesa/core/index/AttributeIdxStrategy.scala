@@ -16,6 +16,7 @@
 
 package org.locationtech.geomesa.core.index
 
+import java.util.Date
 import java.util.Map.Entry
 
 import com.typesafe.scalalogging.slf4j.Logging
@@ -36,7 +37,7 @@ import org.locationtech.geomesa.feature.SimpleFeatureDecoder
 import org.locationtech.geomesa.utils.geotools.Conversions.RichAttributeDescriptor
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.SimpleFeatureType
-import org.opengis.filter.expression.{Expression, Literal, PropertyName}
+import org.opengis.filter.expression.{Literal, PropertyName}
 import org.opengis.filter.temporal.{After, Before, During, TEquals}
 import org.opengis.filter.{Filter, PropertyIsEqualTo, PropertyIsLike, _}
 
@@ -64,7 +65,7 @@ trait AttributeIdxStrategy extends Strategy with Logging {
     val attrScanner = acc.createAttrIdxScanner(featureType)
     attrScanner.setRange(range)
 
-    val (geomFilters, otherFilters) = partitionGeom(query.getFilter)
+    val (geomFilters, otherFilters) = partitionGeom(query.getFilter, featureType)
     val (temporalFilters, nonSTFilters) = partitionTemporal(otherFilters, getDtgFieldName(featureType))
 
     output(s"Geometry filters: $geomFilters")
@@ -204,7 +205,8 @@ trait AttributeIdxStrategy extends Strategy with Logging {
     )
 }
 
-class AttributeIdxEqualsStrategy extends AttributeIdxStrategy {
+class AttributeIdxEqualsStrategy(val attributeFilter: Filter, val range: AccRange, val prop: String)
+    extends AttributeIdxStrategy {
 
   import org.locationtech.geomesa.core.index.AttributeIndexStrategy._
 
@@ -213,13 +215,13 @@ class AttributeIdxEqualsStrategy extends AttributeIdxStrategy {
                        sft: SimpleFeatureType,
                        query: Query,
                        output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
-    val (strippedQuery, filter) = partitionFilter(query, sft)
-    val (prop, range) = getPropertyAndRange(filter, sft)
+    val strippedQuery = removeFilter(query, attributeFilter)
     attrIdxQuery(acc, strippedQuery, iqp, sft, prop, range, output)
   }
 }
 
-class AttributeIdxRangeStrategy extends AttributeIdxStrategy {
+class AttributeIdxRangeStrategy(val attributeFilter: Filter, val range: AccRange, val prop: String)
+    extends AttributeIdxStrategy {
 
   import org.locationtech.geomesa.core.index.AttributeIndexStrategy._
 
@@ -228,13 +230,13 @@ class AttributeIdxRangeStrategy extends AttributeIdxStrategy {
                        featureType: SimpleFeatureType,
                        query: Query,
                        output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
-    val (strippedQuery, filter) = partitionFilter(query, featureType)
-    val (prop, range) = getPropertyAndRange(filter, featureType)
+    val strippedQuery = removeFilter(query, attributeFilter)
     attrIdxQuery(acc, strippedQuery, iqp, featureType, prop, range, output)
   }
 }
 
-class AttributeIdxLikeStrategy extends AttributeIdxStrategy {
+class AttributeIdxLikeStrategy(val attributeFilter: Filter, val range: AccRange, val prop: String)
+    extends AttributeIdxStrategy {
 
   import org.locationtech.geomesa.core.index.AttributeIndexStrategy._
 
@@ -243,110 +245,254 @@ class AttributeIdxLikeStrategy extends AttributeIdxStrategy {
                        featureType: SimpleFeatureType,
                        query: Query,
                        output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
-    val (strippedQuery, extractedFilter) = partitionFilter(query, featureType)
-    val (prop, range) = getPropertyAndRange(extractedFilter, featureType)
+    val strippedQuery = removeFilter(query, attributeFilter)
     attrIdxQuery(acc, strippedQuery, iqp, featureType, prop, range, output)
   }
 }
 
-object AttributeIndexStrategy {
+/**
+ * Queries against the attribute index table
+ */
+object AttributeIndexStrategy extends StrategyProvider {
 
   import org.locationtech.geomesa.utils.geotools.Conversions._
 
-  def getAttributeIndexStrategy(filter: Filter, sft: SimpleFeatureType): Option[Strategy] =
+  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints) =
     filter match {
       // equals strategy checks
       case f: PropertyIsEqualTo =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxEqualsStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val value = property.literal.getValue
+          val range = AccRange.exact(getEncodedAttrIdxRow(sft, property.name, value))
+          val strategy = new AttributeIdxEqualsStrategy(filter, range, property.name)
+          val cost = hints.attributeCost(descriptor, value, value)
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: TEquals =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxEqualsStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val value = property.literal.getValue
+          val exact = getEncodedAttrIdxRow(sft, property.name, value)
+          val range = AccRange.exact(exact)
+          val strategy = new AttributeIdxEqualsStrategy(filter, range, property.name)
+          val cost = hints.attributeCost(descriptor, value, value)
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: PropertyIsNil =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression)
-        if (canQuery) Some(new AttributeIdxEqualsStrategy) else None
+        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
+        val descriptor = sft.getDescriptor(prop)
+        if (descriptor.isIndexed) {
+          val rowIdPrefix = org.locationtech.geomesa.core.index.getTableSharingPrefix(sft)
+          val exact = AttributeTable.getAttributeIndexRows(rowIdPrefix, descriptor, None).head
+          val range = AccRange.exact(exact)
+          val strategy = new AttributeIdxEqualsStrategy(filter, range, prop)
+          val cost = hints.attributeCost(descriptor, None, None)
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: PropertyIsNull =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression)
-        if (canQuery) Some(new AttributeIdxEqualsStrategy) else None
+        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
+        val descriptor = sft.getDescriptor(prop)
+        if (descriptor.isIndexed) {
+          val rowIdPrefix = org.locationtech.geomesa.core.index.getTableSharingPrefix(sft)
+          val exact = AttributeTable.getAttributeIndexRows(rowIdPrefix, descriptor, None).head
+          val range = AccRange.exact(exact)
+          val strategy = new AttributeIdxEqualsStrategy(filter, range, prop)
+          val cost = hints.attributeCost(descriptor, None, None)
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       // like strategy checks
       case f: PropertyIsLike =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression) && QueryStrategyDecider.likeEligible(f)
-        if (canQuery) Some(new AttributeIdxLikeStrategy) else None
+        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
+        val descriptor = sft.getDescriptor(prop)
+        if (descriptor.isIndexed && QueryStrategyDecider.likeEligible(f)) {
+          // Remove the trailing wildcard and create a range prefix
+          val literal = f.getLiteral
+          val value = if (literal.endsWith(QueryStrategyDecider.MULTICHAR_WILDCARD)) {
+            literal.substring(0, literal.length - QueryStrategyDecider.MULTICHAR_WILDCARD.length)
+          } else {
+            literal
+          }
+          val range = AccRange.prefix(getEncodedAttrIdxRow(sft, prop, value))
+          val strategy = new AttributeIdxLikeStrategy(filter, range, prop)
+          val cost = hints.attributeCost(descriptor, value, value + "~~~")
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       // range strategy checks
       case f: PropertyIsBetween =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
+        val descriptor = sft.getDescriptor(prop)
+        if (descriptor.isIndexed) {
+          val lower = f.getLowerBoundary.asInstanceOf[Literal].getValue
+          val upper = f.getUpperBoundary.asInstanceOf[Literal].getValue
+          val lowerBound = getEncodedAttrIdxRow(sft, prop, lower)
+          val upperBound = getEncodedAttrIdxRow(sft, prop, upper)
+          val range = new AccRange(lowerBound, true, upperBound, true)
+          val strategy = new AttributeIdxRangeStrategy(filter, range, prop)
+          val cost = hints.attributeCost(descriptor, lower, upper)
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: PropertyIsGreaterThan =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val range = if (property.flipped) {
+            lessThanRange(sft, property.name, property.literal.getValue)
+          } else {
+            greaterThanRange(sft, property.name, property.literal.getValue)
+          }
+          val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
+          val cost = if (property.flipped) {
+            hints.attributeCost(descriptor, "", property.literal.getValue)
+          } else {
+            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+          }
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: PropertyIsGreaterThanOrEqualTo =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val range = if (property.flipped) {
+            lessThanOrEqualRange(sft, property.name, property.literal.getValue)
+          } else {
+            greaterThanOrEqualRange(sft, property.name, property.literal.getValue)
+          }
+          val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
+          val cost = if (property.flipped) {
+            hints.attributeCost(descriptor, "", property.literal.getValue)
+          } else {
+            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+          }
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: PropertyIsLessThan =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val range = if (property.flipped) {
+            greaterThanRange(sft, property.name, property.literal.getValue)
+          } else {
+            lessThanRange(sft, property.name, property.literal.getValue)
+          }
+          val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
+          val cost = if (property.flipped) {
+            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+          } else {
+            hints.attributeCost(descriptor, "", property.literal.getValue)
+          }
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: PropertyIsLessThanOrEqualTo =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val range = if (property.flipped) {
+            greaterThanOrEqualRange(sft, property.name, property.literal.getValue)
+          } else {
+            lessThanOrEqualRange(sft, property.name, property.literal.getValue)
+          }
+          val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
+          val cost = if (property.flipped) {
+            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+          } else {
+            hints.attributeCost(descriptor, "", property.literal.getValue)
+          }
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: Before =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (sft.getDescriptor(property.name).isIndexed) {
+          val range = if (property.flipped) {
+            greaterThanRange(sft, property.name, property.literal.getValue)
+          } else {
+            lessThanRange(sft, property.name, property.literal.getValue)
+          }
+          val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
+          val cost = if (property.flipped) {
+            hints.attributeCost(descriptor, property.literal.evaluate(null, classOf[Date]),
+              new Date(Long.MaxValue))
+          } else {
+            hints.attributeCost(descriptor, new Date(0), property.literal.evaluate(null, classOf[Date]))
+          }
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: After =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val range = if (property.flipped) {
+            lessThanRange(sft, property.name, property.literal.getValue)
+          } else {
+            greaterThanRange(sft, property.name, property.literal.getValue)
+          }
+          val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
+          val cost = if (property.flipped) {
+            hints.attributeCost(descriptor, new Date(0), property.literal.evaluate(null, classOf[Date]))
+          } else {
+            hints.attributeCost(descriptor, property.literal.evaluate(null, classOf[Date]),
+              new Date(Long.MaxValue))
+          }
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
       case f: During =>
-        val canQuery = isValidAttributeFilter(sft, f.getExpression1, f.getExpression2)
-        if (canQuery) Some(new AttributeIdxRangeStrategy) else None
+        val property = checkOrder(f.getExpression1, f.getExpression2)
+        val descriptor = sft.getDescriptor(property.name)
+        if (descriptor.isIndexed) {
+          val during = property.literal.getValue.asInstanceOf[DefaultPeriod]
+          val lower = during.getBeginning.getPosition.getDate
+          val upper = during.getEnding.getPosition.getDate
+          val lowerBound = getEncodedAttrIdxRow(sft, property.name, lower)
+          val upperBound = getEncodedAttrIdxRow(sft, property.name, upper)
+          val range = new AccRange(lowerBound, true, upperBound, true)
+          val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
+          val cost = hints.attributeCost(descriptor, lower, upper)
+          Some(StrategyDecision(strategy, cost))
+        } else {
+          None
+        }
 
-      // doesn't match any property strategy
+      // doesn't match any attribute strategy
       case _ => None
-    }
-
-  /**
-   * Ensures the following conditions:
-   *   - there is exactly one 'property name' expression
-   *   - the property is indexed by GeoMesa
-   *   - all other expressions are literals
-   *
-   * @param sft
-   * @param exp
-   * @return
-   */
-  private def isValidAttributeFilter(sft: SimpleFeatureType, exp: Expression*): Boolean = {
-    val (props, lits) = exp.partition(_.isInstanceOf[PropertyName])
-
-    props.length == 1 &&
-      props.map(_.asInstanceOf[PropertyName].getPropertyName).forall(sft.getDescriptor(_).isIndexed) &&
-      lits.forall(_.isInstanceOf[Literal])
-  }
-
-  /**
-   * Checks the order of properties and literals in the expression
-   *
-   * @param one
-   * @param two
-   * @return (prop, literal, whether the order was flipped)
-   */
-  def checkOrder(one: Expression, two: Expression): (String, AnyRef, Boolean) =
-    (one, two) match {
-      case (p: PropertyName, l: Literal) => (p.getPropertyName, l.getValue, false)
-      case (l: Literal, p: PropertyName) => (p.getPropertyName, l.getValue, true)
-      case _ =>
-        val msg = "Unhandled properties in attribute index strategy: " +
-            s"${one.getClass.getName}, ${two.getClass.getName}"
-        throw new RuntimeException(msg)
     }
 
   /**
@@ -390,103 +536,6 @@ object AttributeIndexStrategy {
     AttributeTable.getAttributeIndexRows(rowIdPrefix, descriptor, Some(typedValue)).head
   }
 
-  def getPropertyAndRange(filter: Filter, sft: SimpleFeatureType): (String, AccRange) =
-    filter match {
-      case f: PropertyIsBetween =>
-        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
-        val lower = f.getLowerBoundary.asInstanceOf[Literal].getValue
-        val upper = f.getUpperBoundary.asInstanceOf[Literal].getValue
-        val lowerBound = getEncodedAttrIdxRow(sft, prop, lower)
-        val upperBound = getEncodedAttrIdxRow(sft, prop, upper)
-        (prop, new AccRange(lowerBound, true, upperBound, true))
-
-      case f: PropertyIsGreaterThan =>
-        val (prop, lit, flipped) = checkOrder(f.getExpression1, f.getExpression2)
-        if (flipped) {
-          (prop, lessThanRange(sft, prop, lit))
-        } else {
-          (prop, greaterThanRange(sft, prop, lit))
-        }
-      case f: PropertyIsGreaterThanOrEqualTo =>
-        val (prop, lit, flipped) = checkOrder(f.getExpression1, f.getExpression2)
-        if (flipped) {
-          (prop, lessThanOrEqualRange(sft, prop, lit))
-        } else {
-          (prop, greaterThanOrEqualRange(sft, prop, lit))
-        }
-      case f: PropertyIsLessThan =>
-        val (prop, lit, flipped) = checkOrder(f.getExpression1, f.getExpression2)
-        if (flipped) {
-          (prop, greaterThanRange(sft, prop, lit))
-        } else {
-          (prop, lessThanRange(sft, prop, lit))
-        }
-      case f: PropertyIsLessThanOrEqualTo =>
-        val (prop, lit, flipped) = checkOrder(f.getExpression1, f.getExpression2)
-        if (flipped) {
-          (prop, greaterThanOrEqualRange(sft, prop, lit))
-        } else {
-          (prop, lessThanOrEqualRange(sft, prop, lit))
-        }
-      case f: Before =>
-        val (prop, lit, flipped) = checkOrder(f.getExpression1, f.getExpression2)
-        if (flipped) {
-          (prop, greaterThanRange(sft, prop, lit))
-        } else {
-          (prop, lessThanRange(sft, prop, lit))
-        }
-      case f: After =>
-        val (prop, lit, flipped) = checkOrder(f.getExpression1, f.getExpression2)
-        if (flipped) {
-          (prop, lessThanRange(sft, prop, lit))
-        } else {
-          (prop, greaterThanRange(sft, prop, lit))
-        }
-      case f: During =>
-        val (prop, lit, _) = checkOrder(f.getExpression1, f.getExpression2)
-        val during = lit.asInstanceOf[DefaultPeriod]
-        val lower = during.getBeginning.getPosition.getDate
-        val upper = during.getEnding.getPosition.getDate
-        val lowerBound = getEncodedAttrIdxRow(sft, prop, lower)
-        val upperBound = getEncodedAttrIdxRow(sft, prop, upper)
-        (prop, new AccRange(lowerBound, true, upperBound, true))
-
-      case f: PropertyIsEqualTo =>
-        val (prop, lit, _) = checkOrder(f.getExpression1, f.getExpression2)
-        (prop, AccRange.exact(getEncodedAttrIdxRow(sft, prop, lit)))
-
-      case f: TEquals =>
-        val (prop, lit, _) = checkOrder(f.getExpression1, f.getExpression2)
-        (prop, AccRange.exact(getEncodedAttrIdxRow(sft, prop, lit)))
-
-      case f: PropertyIsNil =>
-        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
-        val rowIdPrefix = org.locationtech.geomesa.core.index.getTableSharingPrefix(sft)
-        val exact = AttributeTable.getAttributeIndexRows(rowIdPrefix, sft.getDescriptor(prop), None).head
-        (prop, AccRange.exact(exact))
-
-      case f: PropertyIsNull =>
-        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
-        val rowIdPrefix = org.locationtech.geomesa.core.index.getTableSharingPrefix(sft)
-        val exact = AttributeTable.getAttributeIndexRows(rowIdPrefix, sft.getDescriptor(prop), None).head
-        (prop, AccRange.exact(exact))
-
-      case f: PropertyIsLike =>
-        val prop = f.getExpression.asInstanceOf[PropertyName].getPropertyName
-        // Remove the trailing wildcard and create a range prefix
-        val literal = f.getLiteral
-        val value = if (literal.endsWith(QueryStrategyDecider.MULTICHAR_WILDCARD)) {
-          literal.substring(0, literal.length - QueryStrategyDecider.MULTICHAR_WILDCARD.length)
-        } else {
-          literal
-        }
-        (prop, AccRange.prefix(getEncodedAttrIdxRow(sft, prop, value)))
-
-      case _ =>
-        val msg = s"Unhandled filter type in attribute strategy: ${filter.getClass.getName}"
-        throw new RuntimeException(msg)
-    }
-
   private def greaterThanRange(sft: SimpleFeatureType, prop: String, lit: AnyRef): AccRange = {
     val rowIdPrefix = getTableSharingPrefix(sft)
     val start = new Text(getEncodedAttrIdxRow(sft, prop, lit))
@@ -517,29 +566,15 @@ object AttributeIndexStrategy {
     new AccRange(start, false, end, true)
   }
 
-  // This function assumes that the query's filter object is or has an attribute-idx-satisfiable
-  //  filter.  If not, you will get a None.get exception.
-  def partitionFilter(query: Query, sft: SimpleFeatureType): (Query, Filter) = {
-
+  def removeFilter(query: Query, filterToRemove: Filter): Query = {
     val filter = query.getFilter
-
-    val (indexFilter: Option[Filter], cqlFilter) = filter match {
-      case and: And =>
-        findFirst(AttributeIndexStrategy.getAttributeIndexStrategy(_, sft).isDefined)(and.getChildren)
-      case f: Filter =>
-        (Some(f), Seq())
+    val newFilter = filter match {
+      case and: And => filterListAsAnd(and.getChildren.filter(_ != filterToRemove)).getOrElse(Filter.INCLUDE)
+      case f: Filter if (f == filterToRemove) => Filter.INCLUDE
+      case f: Filter => f
     }
-
-    val nonIndexFilters = filterListAsAnd(cqlFilter).getOrElse(Filter.INCLUDE)
-
     val newQuery = new Query(query)
-    newQuery.setFilter(nonIndexFilters)
-
-    if (indexFilter.isEmpty) {
-      throw new Exception(s"Partition Filter was called on $query for filter $filter. " +
-          "The AttributeIdxStrategy did not find a compatible sub-filter.")
-    }
-
-    (newQuery, indexFilter.get)
+    newQuery.setFilter(newFilter)
+    newQuery
   }
 }

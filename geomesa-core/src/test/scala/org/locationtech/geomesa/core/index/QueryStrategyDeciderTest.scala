@@ -55,7 +55,7 @@ class QueryStrategyDeciderTest extends Specification {
   def getStrategy(filterString: String, version: Int = data.INTERNAL_GEOMESA_VERSION): Strategy = {
     val sft = if (version > 0) sftIndex else sftNonIndex
     val filter = ECQL.toFilter(filterString)
-    val hints = new UserDataStrategyHints()
+    val hints = new StaticStrategyHints()
     val query = new Query(sft.getTypeName)
     query.setFilter(filter)
     QueryStrategyDecider.chooseStrategy(sft, query, hints, version)
