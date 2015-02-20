@@ -34,6 +34,7 @@ import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.data.{AccumuloDataStore, INTERNAL_GEOMESA_VERSION}
 import org.locationtech.geomesa.core.data.tables.AttributeTable
 import org.locationtech.geomesa.core.index
+import org.locationtech.geomesa.core.index.strategies._
 import org.locationtech.geomesa.feature.{AvroSimpleFeatureFactory, SimpleFeatureEncoder}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.text.WKTUtils
@@ -103,17 +104,15 @@ class AttributeIndexStrategyTest extends Specification {
   val fs = ds.getFeatureSource(sftName).asInstanceOf[FeatureStore[SimpleFeatureType, SimpleFeature]]
   fs.addFeatures(featureCollection)
 
-  val featureEncoder = SimpleFeatureEncoder(sft, ds.getFeatureEncoding(sft))
-  val indexSchema = IndexSchema(ds.getIndexSchemaFmt(sftName), sft, featureEncoder)
-  val queryPlanner = indexSchema.planner
+  val featureEncoding = ds.getFeatureEncoding(sft)
+  val queryExecutor = new QueryExecutor(sft, featureEncoding, null, null, ds, NoopHints)
 
   def execute(expectedStrategy: Class[_], filter: String): List[String] = {
     val query = new Query(sftName, ECQL.toFilter(filter))
     val strategy = QueryStrategyDecider.chooseStrategy(sft, query, NoopHints, INTERNAL_GEOMESA_VERSION)
     strategy.getClass mustEqual(expectedStrategy)
-    val results = strategy.execute(ds, queryPlanner, sft, query, ExplainNull)
-    // adapt iterator no longer de-dupes, add dedupe wrapper
-    queryPlanner.adaptIterator(results, query).map(_.getAttribute("name").toString).toSet.toList
+    val results = strategy.execute(query, sft, null, featureEncoding, ds, ExplainNull)
+    queryExecutor.adaptIterator(results, query).map(_.getAttribute("name").toString).toSet.toList
   }
 
   "AttributeIndexStrategy" should {

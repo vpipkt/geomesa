@@ -41,6 +41,7 @@ import org.locationtech.geomesa.core.data.AccumuloDataStore._
 import org.locationtech.geomesa.core.data.tables.{AttributeTable, RecordTable, SpatioTemporalTable}
 import org.locationtech.geomesa.core.index
 import org.locationtech.geomesa.core.index._
+import org.locationtech.geomesa.core.index.strategies.{StaticStrategyHints, StrategyHintsProvider}
 import org.locationtech.geomesa.core.security.AuthorizationsProvider
 import org.locationtech.geomesa.data.TableSplitter
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
@@ -312,23 +313,21 @@ class AccumuloDataStore(val connector: Connector,
   }
 
   /**
-   * Read SpatioTemporal Index table name from store metadata
+   * Read SpatioTemporal Index max shard from store metadata
    */
   def getSpatioTemporalMaxShard(sft: SimpleFeatureType): Int = {
     val indexSchemaFmt = metadata.read(sft.getTypeName, SCHEMA_KEY)
       .getOrElse(throw new RuntimeException(s"Unable to find required metadata property for $SCHEMA_KEY"))
-    val fe = SimpleFeatureEncoder(sft, getFeatureEncoding(sft))
-    val indexSchema = IndexSchema(indexSchemaFmt, sft, fe)
-    indexSchema.maxShard
+    IndexSchema.maxShard(indexSchemaFmt)
   }
 
+  /**
+   * Read Time Index max shard from store metadata
+   */
   def getTimeIndexMaxShard(sft: SimpleFeatureType): Int = {
-    // TODO back compatibility
     val indexSchemaFmt = metadata.read(sft.getTypeName, TIME_SCHEMA_KEY)
-        .getOrElse(throw new RuntimeException(s"Unable to find required metadata property for $TIME_SCHEMA_KEY"))
-    val fe = SimpleFeatureEncoder(sft, getFeatureEncoding(sft))
-    val indexSchema = IndexSchema(indexSchemaFmt, sft, fe)
-    indexSchema.maxShard
+      .getOrElse(throw new RuntimeException(s"Unable to find required metadata property for $TIME_SCHEMA_KEY"))
+    IndexSchema.maxShard(indexSchemaFmt)
   }
 
   def createTablesForType(featureType: SimpleFeatureType, maxShard: Int) {
@@ -884,11 +883,12 @@ class AccumuloDataStore(val connector: Connector,
   // This override is important as it allows us to optimize and plan our search with the Query.
   override def getFeatureReader(featureName: String, query: Query) = {
     validateMetadata(featureName)
-    val indexSchemaFmt = getIndexSchemaFmt(featureName)
     val sft = getSchema(featureName)
-    val fe = SimpleFeatureEncoder(sft, getFeatureEncoding(sft))
+    val indexSchemaFmt = getIndexSchemaFmt(featureName)
+    val timeIndexSchemaFmt = getTimeIndexSchemaFmt(featureName)
+    val featureEncoding = getFeatureEncoding(sft)
     setQueryTransforms(query, sft)
-    new AccumuloFeatureReader(this, query, indexSchemaFmt, sft, fe)
+    new AccumuloFeatureReader(this, query, sft, indexSchemaFmt, timeIndexSchemaFmt, featureEncoding)
   }
 
   /* create a general purpose writer that is capable of insert, deletes, and updates */

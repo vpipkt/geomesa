@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import java.util.{Date, Properties}
 
@@ -88,7 +88,7 @@ trait StrategyHints {
  */
 class StaticStrategyHints extends StrategyHints {
 
-  import org.locationtech.geomesa.core.index.StaticStrategyHints._
+  import org.locationtech.geomesa.core.index.strategies.StaticStrategyHints._
 
   /**
    * ID cost is 1 - take priority over everything else
@@ -144,7 +144,7 @@ class StaticStrategyHints extends StrategyHints {
 
 object StaticStrategyHints extends Logging {
 
-  import org.locationtech.geomesa.core.index.StaticStrategyHints.Keys._
+  import org.locationtech.geomesa.core.index.strategies.StaticStrategyHints.Keys._
   import scala.collection.JavaConversions._
 
   private val file = "strategy-hints.properties"

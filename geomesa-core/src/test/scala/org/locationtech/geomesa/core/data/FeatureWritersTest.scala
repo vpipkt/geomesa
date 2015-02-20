@@ -26,7 +26,8 @@ import org.geotools.feature.DefaultFeatureCollection
 import org.geotools.filter.text.cql2.CQL
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
-import org.locationtech.geomesa.core.index.{AttributeIdxEqualsStrategy, QueryStrategyDecider, SF_PROPERTY_START_TIME}
+import org.locationtech.geomesa.core.index.strategies.{QueryStrategyDecider, AttributeIdxEqualsStrategy}
+import org.locationtech.geomesa.core.index.SF_PROPERTY_START_TIME
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.text.WKTUtils

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import java.util.Date
 import java.util.Map.Entry
@@ -29,7 +29,8 @@ import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.data.tables.{AttributeTable, RecordTable}
 import org.locationtech.geomesa.core.filter._
 import org.locationtech.geomesa.core.index.FilterHelper._
-import org.locationtech.geomesa.core.index.QueryPlanner._
+import org.locationtech.geomesa.core.index._
+import org.locationtech.geomesa.core.index.strategies.AttributeIndexStrategy._
 import org.locationtech.geomesa.core.iterators._
 import org.locationtech.geomesa.core.util.{BatchMultiScanner, SelfClosingIterator}
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
@@ -46,17 +47,18 @@ import scala.collection.JavaConverters._
 
 trait AttributeIdxStrategy extends Strategy with Logging {
 
+  import org.locationtech.geomesa.core.index.strategies.Strategy._
+
   /**
    * Perform scan against the Attribute Index Table and get an iterator returning records from the Record table
    */
-  def attrIdxQuery(
-      acc: AccumuloConnectorCreator,
-      query: Query,
-      iqp: QueryPlanner,
-      featureType: SimpleFeatureType,
-      attributeName: String,
-      range: AccRange,
-      output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
+  def attrIdxQuery(query: Query,
+                   featureType: SimpleFeatureType,
+                   featureEncoding: FeatureEncoding,
+                   acc: AccumuloConnectorCreator,
+                   attributeName: String,
+                   range: AccRange,
+                   output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
 
     output(s"Scanning attribute table for feature type ${featureType.getTypeName}")
     output(s"Range: ${ExplainerOutputType.toString(range)}")
@@ -75,8 +77,6 @@ trait AttributeIdxStrategy extends Strategy with Logging {
     val stFilter: Option[Filter] = filterListAsAnd(geomFilters ++ temporalFilters)
     val ecqlFilter: Option[Filter] = nonSTFilters.map(_ => recomposeAnd(nonSTFilters)).headOption
 
-    val encoding = iqp.featureEncoding
-
     // choose which iterator we want to use - joining iterator or attribute only iterator
     val iteratorChoice: IteratorConfig =
       IteratorTrigger.chooseAttributeIterator(ecqlFilter, query, featureType, attributeName)
@@ -84,7 +84,7 @@ trait AttributeIdxStrategy extends Strategy with Logging {
     val iter = iteratorChoice.iterator match {
       case IndexOnlyIterator =>
         // the attribute index iterator also handles transforms and date/geom filters
-        val cfg = configureAttributeIndexIterator(featureType, encoding, query, stFilter,
+        val cfg = configureAttributeIndexIterator(featureType, featureEncoding, query, stFilter,
           iteratorChoice.transformCoversFilter, attributeName)
         attrScanner.addScanIterator(cfg)
         output(s"AttributeIndexIterator: ${cfg.toString }")
@@ -103,7 +103,7 @@ trait AttributeIdxStrategy extends Strategy with Logging {
         output("Using record join iterator")
         stFilter.foreach { filter =>
           // apply a filter for the indexed date and geometry
-          val cfg = configureSpatioTemporalFilter(featureType, encoding, stFilter)
+          val cfg = configureSpatioTemporalFilter(featureType, featureEncoding, stFilter)
           attrScanner.addScanIterator(cfg)
           output(s"SpatioTemporalFilter: ${cfg.toString }")
         }
@@ -113,7 +113,7 @@ trait AttributeIdxStrategy extends Strategy with Logging {
         if (iteratorChoice.hasTransformOrFilter) {
           // apply an iterator for any remaining transforms/filters
           // TODO apply optimization for when transforms cover filter
-          val cfg = configureRecordTableIterator(featureType, encoding, ecqlFilter, query)
+          val cfg = configureRecordTableIterator(featureType, featureEncoding, ecqlFilter, query)
           recordScanner.addScanIterator(cfg)
           output(s"RecordTableIterator: ${cfg.toString }")
         }
@@ -134,7 +134,7 @@ trait AttributeIdxStrategy extends Strategy with Logging {
         featureType.getDescriptor(attributeName).isMultiValued) {
       val returnSft = Option(query.getHints.get(TRANSFORM_SCHEMA).asInstanceOf[SimpleFeatureType])
           .getOrElse(featureType)
-      val decoder = SimpleFeatureDecoder(returnSft, iqp.featureEncoding)
+      val decoder = SimpleFeatureDecoder(returnSft, featureEncoding)
       val deduper = new DeDuplicatingIterator(iter, (_: Key, value: Value) => decoder.extractFeatureId(value.get))
       SelfClosingIterator(deduper)
     } else {
@@ -208,45 +208,42 @@ trait AttributeIdxStrategy extends Strategy with Logging {
 class AttributeIdxEqualsStrategy(val attributeFilter: Filter, val range: AccRange, val prop: String)
     extends AttributeIdxStrategy {
 
-  import org.locationtech.geomesa.core.index.AttributeIndexStrategy._
-
-  override def execute(acc: AccumuloConnectorCreator,
-                       iqp: QueryPlanner,
-                       sft: SimpleFeatureType,
-                       query: Query,
+  override def execute(query: Query,
+                       featureType: SimpleFeatureType,
+                       indexSchema: String,
+                       featureEncoding: FeatureEncoding,
+                       acc: AccumuloConnectorCreator,
                        output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
     val strippedQuery = removeFilter(query, attributeFilter)
-    attrIdxQuery(acc, strippedQuery, iqp, sft, prop, range, output)
+    attrIdxQuery(strippedQuery, featureType, featureEncoding, acc, prop, range, output)
   }
 }
 
 class AttributeIdxRangeStrategy(val attributeFilter: Filter, val range: AccRange, val prop: String)
     extends AttributeIdxStrategy {
 
-  import org.locationtech.geomesa.core.index.AttributeIndexStrategy._
-
-  override def execute(acc: AccumuloConnectorCreator,
-                       iqp: QueryPlanner,
+  override def execute(query: Query,
                        featureType: SimpleFeatureType,
-                       query: Query,
+                       indexSchema: String,
+                       featureEncoding: FeatureEncoding,
+                       acc: AccumuloConnectorCreator,
                        output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
     val strippedQuery = removeFilter(query, attributeFilter)
-    attrIdxQuery(acc, strippedQuery, iqp, featureType, prop, range, output)
+    attrIdxQuery(strippedQuery, featureType, featureEncoding, acc, prop, range, output)
   }
 }
 
 class AttributeIdxLikeStrategy(val attributeFilter: Filter, val range: AccRange, val prop: String)
     extends AttributeIdxStrategy {
 
-  import org.locationtech.geomesa.core.index.AttributeIndexStrategy._
-
-  override def execute(acc: AccumuloConnectorCreator,
-                       iqp: QueryPlanner,
+  override def execute(query: Query,
                        featureType: SimpleFeatureType,
-                       query: Query,
+                       indexSchema: String,
+                       featureEncoding: FeatureEncoding,
+                       acc: AccumuloConnectorCreator,
                        output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
     val strippedQuery = removeFilter(query, attributeFilter)
-    attrIdxQuery(acc, strippedQuery, iqp, featureType, prop, range, output)
+    attrIdxQuery(strippedQuery, featureType, featureEncoding, acc, prop, range, output)
   }
 }
 

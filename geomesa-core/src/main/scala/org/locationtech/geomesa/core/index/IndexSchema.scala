@@ -18,14 +18,11 @@ package org.locationtech.geomesa.core.index
 
 import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.{Geometry, GeometryCollection, Point, Polygon}
-import org.apache.accumulo.core.data.Key
-import org.geotools.data.Query
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.{DateTime, DateTimeZone, Interval}
-import org.locationtech.geomesa.core.util._
 import org.locationtech.geomesa.feature.SimpleFeatureEncoder
 import org.locationtech.geomesa.utils.text.WKTUtils
-import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
+import org.opengis.feature.simple.SimpleFeatureType
 
 import scala.annotation.tailrec
 import scala.util.parsing.combinator.RegexParsers
@@ -65,24 +62,6 @@ import scala.util.parsing.combinator.RegexParsers
 // an example of a fully specified index schema:
 //
 // %~#s%999#r%0,4#gh%HHmm#d::%~#s%4,2#gh::%~#s%6,1#gh%yyyyMMdd#d
-
-case class IndexSchema(encoder: IndexEntryEncoder,
-                       decoder: IndexEntryDecoder,
-                       planner: QueryPlanner,
-                       featureType: SimpleFeatureType) extends ExplainingLogging {
-
-  def encode(entry: SimpleFeature, visibility: String = "") = encoder.encode(entry, visibility)
-  def decode(key: Key): SimpleFeature = decoder.decode(key)
-
-
-  // utility method to ask for the maximum allowable shard number
-  def maxShard: Int =
-    encoder.rowf match {
-      case CompositeTextFormatter(Seq(PartitionTextFormatter(numPartitions), xs@_*), sep) => numPartitions
-      case _ => 1  // couldn't find a matching partitioner
-    }
-}
-
 object IndexSchema extends RegexParsers with Logging {
   val minDateTime = new DateTime(0, 1, 1, 0, 0, 0, DateTimeZone.forID("UTC"))
   val maxDateTime = new DateTime(9999, 12, 31, 23, 59, 59, DateTimeZone.forID("UTC"))
@@ -335,18 +314,13 @@ object IndexSchema extends RegexParsers with Logging {
         true
     }
 
-  // builds a IndexSchema (requiring a feature type)
-  def apply(s: String,
-            featureType: SimpleFeatureType,
-            featureEncoder: SimpleFeatureEncoder): IndexSchema = {
-    val keyEncoder        = buildKeyEncoder(s, featureEncoder)
-    val geohashDecoder    = buildGeohashDecoder(s)
-    val dateDecoder       = buildDateDecoder(s)
-    val keyPlanner        = buildKeyPlanner(s)
-    val cfPlanner         = buildColumnFamilyPlanner(s)
-    val indexEntryDecoder = IndexEntryDecoder(geohashDecoder, dateDecoder)
-    val queryPlanner      = QueryPlanner(s, featureType, featureEncoder.encoding)
-    IndexSchema(keyEncoder, indexEntryDecoder, queryPlanner, featureType)
+  // utility method to ask for the maximum allowable shard number
+  def maxShard(schema: String): Int = {
+    val (rowf, _, _) = parse(formatter, schema).get
+    rowf match {
+      case CompositeTextFormatter(Seq(PartitionTextFormatter(numPartitions), xs@_*), sep) => numPartitions
+      case _ => 1  // couldn't find a matching partitioner
+    }
   }
 
   def getIndexEntryDecoder(s: String) = {

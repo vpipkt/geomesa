@@ -31,6 +31,7 @@ import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index
 import org.locationtech.geomesa.core.index._
+import org.locationtech.geomesa.core.index.strategies._
 import org.locationtech.geomesa.utils.geotools.Conversions._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.text.WKTUtils

@@ -14,28 +14,41 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import java.util.Date
 
+import org.apache.accumulo.core.client.IteratorSetting
 import org.geotools.data.Query
 import org.geotools.temporal.`object`.DefaultPeriod
 import org.locationtech.geomesa.core
 import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
+import org.locationtech.geomesa.core.index._
+import org.locationtech.geomesa.feature.FeatureEncoding._
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter._
 import org.opengis.filter.expression.{Literal, PropertyName}
 import org.opengis.filter.temporal.{After, Before, During, TEquals}
 
-class TimeIndexStrategy extends Strategy {
+class TimeIndexStrategy extends BaseSpatioTemporalStrategy {
 
-  override def execute(acc: AccumuloConnectorCreator,
-                       iqp: QueryPlanner,
+  override def execute(query: Query,
                        featureType: SimpleFeatureType,
-                       query: Query,
+                       indexSchema: String,
+                       featureEncoding: FeatureEncoding,
+                       acc: AccumuloConnectorCreator,
                        output: ExplainerOutputType) = {
+    val bs = acc.createTimeIndexScanner(featureType)
+    tryScanner(query, featureType, indexSchema, featureEncoding, bs, output)
+  }
 
-    null
+  override def getOtherIteratorConfigs(query: Query,
+                                       sft: SimpleFeatureType,
+                                       encoding: FeatureEncoding,
+                                       schema: String,
+                                       output: ExplainerOutputType): List[IteratorSetting] = {
+
+    List.empty
   }
 }
 

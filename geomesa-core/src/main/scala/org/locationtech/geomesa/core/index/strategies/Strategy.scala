@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import java.util.Map.Entry
 
@@ -27,7 +27,7 @@ import org.joda.time.Interval
 import org.locationtech.geomesa.core._
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index.QueryHints._
-import org.locationtech.geomesa.core.index.QueryPlanner._
+import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.iterators.{FEATURE_ENCODING, _}
 import org.locationtech.geomesa.core.util.SelfClosingIterator
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
@@ -40,10 +40,14 @@ import scala.collection.JavaConversions._
 import scala.util.Random
 
 trait Strategy {
-  def execute(acc: AccumuloConnectorCreator,
-              iqp: QueryPlanner,
+
+  import org.locationtech.geomesa.core.index.strategies.Strategy._
+
+  def execute(query: Query,
               featureType: SimpleFeatureType,
-              query: Query,
+              indexSchema: String,
+              featureEncoding: FeatureEncoding,
+              acc: AccumuloConnectorCreator,
               output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]]
 
   def configureBatchScanner(bs: BatchScanner, qp: QueryPlan) {
@@ -160,6 +164,17 @@ trait Strategy {
       None
     }
   }
+}
+
+object Strategy {
+  // TODO remove unused
+  val iteratorPriority_AttributeIndexFilteringIterator = 10
+  val iteratorPriority_AttributeIndexIterator          = 200
+  val iteratorPriority_AttributeUniqueIterator         = 300
+  val iteratorPriority_ColFRegex                       = 100
+  val iteratorPriority_SpatioTemporalIterator          = 200
+  val iteratorPriority_SimpleFeatureFilteringIterator  = 300
+  val iteratorPriority_AnalysisIterator                = 400
 }
 
 trait StrategyProvider {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import java.util
 import java.util.Map.Entry
@@ -23,14 +23,15 @@ import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.data
 import org.apache.accumulo.core.data.{Key, Value}
 import org.geotools.data.Query
-import org.geotools.factory.CommonFactoryFinder
 import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
 import org.locationtech.geomesa.core.data.tables.RecordTable
 import org.locationtech.geomesa.core.filter._
 import org.locationtech.geomesa.core.index.FilterHelper.filterListAsAnd
+import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.iterators.IteratorTrigger
 import org.locationtech.geomesa.core.util.{SelfClosingBatchScanner, SelfClosingIterator}
+import org.locationtech.geomesa.feature.FeatureEncoding._
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter.identity.{FeatureId, Identifier}
 import org.opengis.filter.{Filter, Id}
@@ -71,24 +72,22 @@ object RecordIdxStrategy extends StrategyProvider {
 
 class RecordIdxStrategy extends Strategy with Logging {
 
-  def execute(acc: AccumuloConnectorCreator,
-                       iqp: QueryPlanner,
-                       featureType: SimpleFeatureType,
-                       query: Query,
-                       output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
+  def execute(query: Query,
+              featureType: SimpleFeatureType,
+              indexSchema: String,
+              featureEncoding: FeatureEncoding,
+              acc: AccumuloConnectorCreator,
+              output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
     val recordScanner = acc.createRecordScanner(featureType)
-    val qp = buildIDQueryPlan(query, iqp, featureType, output)
+    val qp = buildIDQueryPlan(query, featureType, featureEncoding, output)
     configureBatchScanner(recordScanner, qp)
     SelfClosingBatchScanner(recordScanner)
   }
 
   def buildIDQueryPlan(query: Query,
-                       iqp: QueryPlanner,
                        featureType: SimpleFeatureType,
+                       featureEncoding: FeatureEncoding,
                        output: ExplainerOutputType) = {
-
-    val schema         = iqp.schema
-    val featureEncoding = iqp.featureEncoding
 
     output(s"Searching the record table with filter ${query.getFilter}")
 

@@ -108,7 +108,8 @@ object TestData extends Logging {
 
   lazy val featureEncoder = SimpleFeatureEncoder(getFeatureType(), "avro")
 
-  lazy val index = IndexSchema(schemaEncoding, featureType, featureEncoder)
+//  lazy val index = IndexSchema(schemaEncoding, featureType, featureEncoder)
+  lazy val indexEncoder = IndexSchema.buildKeyEncoder(schemaEncoding, featureEncoder)
 
   val defaultDateTime = new DateTime(2011, 6, 1, 0, 0, 0, DateTimeZone.forID("UTC")).toDate
 
@@ -124,7 +125,7 @@ object TestData extends Logging {
 
     //entry.setAttribute(geomType, id)
     entry.setAttribute("attr2", "2nd" + id)
-    index.encode(entry).toList
+    indexEncoder.encode(entry, "").toList
   }
 
   def createSF(e: Entry): SimpleFeature = createSF(e, featureType)

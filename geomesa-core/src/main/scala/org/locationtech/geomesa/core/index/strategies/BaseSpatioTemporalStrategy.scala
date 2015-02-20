@@ -1,28 +1,27 @@
 /*
- * Copyright 2014-2014 Commonwealth Computer Research, Inc.
+ * Copyright 2015 Commonwealth Computer Research, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 2.0 (the License);
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
  * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an AS IS BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import java.util.Map.Entry
 
 import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.{Geometry, GeometryCollection}
-import org.apache.accumulo.core.client.IteratorSetting
-import org.apache.accumulo.core.data.{Key, Value}
-import org.apache.accumulo.core.iterators.user.RegExFilter
+import org.apache.accumulo.core.client.{BatchScanner, IteratorSetting}
+import org.apache.accumulo.core.data.{Key, Range => AccRange, Value}
 import org.apache.hadoop.io.Text
 import org.geotools.data.Query
 import org.geotools.filter.text.ecql.ECQL
@@ -31,7 +30,7 @@ import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.filter._
 import org.locationtech.geomesa.core.index.FilterHelper._
 import org.locationtech.geomesa.core.index.QueryHints._
-import org.locationtech.geomesa.core.index.QueryPlanner._
+import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.iterators._
 import org.locationtech.geomesa.core.util.{SelfClosingBatchScanner, SelfClosingIterator}
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
@@ -42,26 +41,27 @@ import org.opengis.filter.spatial.{BBOX, BinarySpatialOperator}
 
 import scala.util.Try
 
-class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
+abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with IndexFilterHelpers {
 
-  import org.locationtech.geomesa.core.index.STIdxStrategy._
+  import org.locationtech.geomesa.core.index.strategies.BaseSpatioTemporalStrategy._
+  import org.locationtech.geomesa.core.index.strategies.Strategy._
 
-  def execute(acc: AccumuloConnectorCreator,
-              iqp: QueryPlanner,
-              featureType: SimpleFeatureType,
-              query: Query,
-              output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
+  def tryScanner(query: Query,
+                 featureType: SimpleFeatureType,
+                 indexSchema: String,
+                 featureEncoding: FeatureEncoding,
+                 bs: BatchScanner,
+                 output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
     val tryScanner = Try {
-      val bs = acc.createSTIdxScanner(featureType)
-      val qp = buildSTIdxQueryPlan(query, iqp, featureType, output)
+      val qp = buildQueryPlan(query, featureType, indexSchema, featureEncoding, output)
       configureBatchScanner(bs, qp)
       // NB: Since we are (potentially) gluing multiple batch scanner iterators together,
       //  we wrap our calls in a SelfClosingBatchScanner.
       SelfClosingBatchScanner(bs)
     }
     val scanner = tryScanner.recover {
-      case e: Throwable =>
-        logger.warn(s"Error in creating scanner: $e", e)
+      case e: Exception =>
+        logger.error("Error in creating scanner:", e)
         // since GeoTools would eat the error and return no records anyway,
         // there's no harm in returning an empty iterator.
         SelfClosingIterator[Entry[Key, Value]](Iterator.empty)
@@ -69,23 +69,19 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
     scanner.get
   }
 
-  def buildSTIdxQueryPlan(query: Query,
-                          iqp: QueryPlanner,
-                          featureType: SimpleFeatureType,
-                          output: ExplainerOutputType) = {
-    val schema          = iqp.schema
-    val featureEncoding = iqp.featureEncoding
-    val keyPlanner      = IndexSchema.buildKeyPlanner(iqp.schema)
-    val cfPlanner       = IndexSchema.buildColumnFamilyPlanner(iqp.schema)
+  def buildQueryPlan(query: Query,
+                     featureType: SimpleFeatureType,
+                     indexSchema: String,
+                     featureEncoding: FeatureEncoding,
+                     output: ExplainerOutputType): QueryPlan = {
+    val keyPlanner      = IndexSchema.buildKeyPlanner(indexSchema)
+    val cfPlanner       = IndexSchema.buildColumnFamilyPlanner(indexSchema)
 
     output(s"Scanning ST index table for feature type ${featureType.getTypeName}")
     output(s"Filter: ${query.getFilter}")
 
-     val dtgField = getDtgFieldName(featureType)
+    val dtgField = getDtgFieldName(featureType)
 
-    // TODO: Select only the geometry filters which involve the indexed geometry type.
-    // https://geomesa.atlassian.net/browse/GEOMESA-200
-    // Simiarly, we should only extract temporal filters for the index date field.
     val (geomFilters, otherFilters) = partitionGeom(query.getFilter, featureType)
     val (temporalFilters, ecqlFilters) = partitionTemporal(otherFilters, dtgField)
 
@@ -100,31 +96,43 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
     output(s"Tweaked geom filters are $tweakedGeoms")
     output(s"GeomToCover: $geometryToCover")
 
-    val temporal = extractTemporal(dtgField)(temporalFilters)
-    val interval = netInterval(temporal)
-    val filter = buildFilter(geometryToCover, interval)
+    val timeInterval = netInterval(extractTemporal(dtgField)(temporalFilters))
+    val filter = buildFilter(geometryToCover, timeInterval)
 
-    val ofilter = filterListAsAnd(tweakedGeoms ++ temporalFilters)
-    if (ofilter.isEmpty) logger.warn(s"Querying Accumulo without ST filter.")
+    val stFilter = filterListAsAnd(tweakedGeoms ++ temporalFilters)
+    if (stFilter.isEmpty) {
+      logger.warn(s"Querying Accumulo without SpatioTemporal filter.")
+    }
 
-    val oint  = IndexSchema.somewhen(interval)
-
-    output(s"STII Filter: ${ofilter.getOrElse("No STII Filter")}")
-    output(s"Interval:  ${oint.getOrElse("No interval")}")
-    output(s"Filter: ${Option(filter).getOrElse("No Filter")}")
+    output(s"STII Filter: ${stFilter.getOrElse("No STII Filter")}")
+    output(s"Time Interval:  ${IndexSchema.somewhen(timeInterval).getOrElse("No time interval")}")
+    output(s"KeyPlanningFilter: ${Option(filter).getOrElse("No Filter")}")
 
     val iteratorConfig = IteratorTrigger.chooseIterator(ecql, query, featureType)
 
-    val stiiIterCfg = getSTIIIterCfg(iteratorConfig, query, featureType, ofilter, ecql, featureEncoding)
+    val stiiIterCfg = getSTIIIterCfg(iteratorConfig, query, featureType, stFilter, ecql, featureEncoding)
+    val densityIterCfg = getDensityIterCfg(query, geometryToCover, indexSchema, featureEncoding, featureType)
+    val otherCfgs = getOtherIteratorConfigs(query, featureType, featureEncoding, indexSchema, output)
+    val iters = List(Some(stiiIterCfg), densityIterCfg).flatten ++ otherCfgs
 
-    val densityIterCfg = getDensityIterCfg(query, geometryToCover, schema, featureEncoding, featureType)
+    // set up row ranges
+    val (ranges, cfs) = getRanges(filter, iteratorConfig.iterator, output, keyPlanner, cfPlanner)
 
-    // set up row ranges and regular expression filter
-    val qp = planQuery(filter, iteratorConfig.iterator, output, keyPlanner, cfPlanner)
-
-    qp.copy(iterators = qp.iterators ++ List(Some(stiiIterCfg), densityIterCfg).flatten)
+    QueryPlan(iters, ranges, cfs)
   }
 
+  /**
+   * Should be implemented by subclasses as needed
+   */
+  def getOtherIteratorConfigs(query: Query,
+                              sft: SimpleFeatureType,
+                              encoding: FeatureEncoding,
+                              schema: String,
+                              output: ExplainerOutputType): List[IteratorSetting] = List.empty
+
+  /**
+   * Gets an iterator setting for the main STII iterator
+   */
   def getSTIIIterCfg(iteratorConfig: IteratorConfig,
                      query: Query,
                      featureType: SimpleFeatureType,
@@ -133,20 +141,12 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
                      featureEncoding: FeatureEncoding): IteratorSetting = {
     iteratorConfig.iterator match {
       case IndexOnlyIterator =>
-        configureIndexIterator(featureType, query, featureEncoding, stFilter, iteratorConfig.transformCoversFilter)
+        val transformsCover = iteratorConfig.transformCoversFilter
+        configureIndexIterator(featureType, query, featureEncoding, stFilter, transformsCover)
       case SpatioTemporalIterator =>
         val isDensity = query.getHints.containsKey(DENSITY_KEY)
-        configureSpatioTemporalIntersectingIterator(featureType, query, featureEncoding, stFilter, ecqlFilter, isDensity)
+        configureSTII(featureType, query, featureEncoding, stFilter, ecqlFilter, isDensity)
     }
-  }
-
-
-  // establishes the regular expression that defines (minimally) acceptable rows
-  def configureRowRegexIterator(regex: String): IteratorSetting = {
-    val name = "regexRow-" + randomPrintableString(5)
-    val cfg = new IteratorSetting(iteratorPriority_RowRegex, name, classOf[RegExFilter])
-    RegExFilter.setRegexs(cfg, regex, null, null, null, false)
-    cfg
   }
 
   // returns an iterator over [key,value] pairs where the key is taken from the index row and the value is a SimpleFeature,
@@ -154,15 +154,13 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
   // -- for items that either:
   // 1) the GeoHash-box intersects the query polygon; this is a coarse-grained filter
   // 2) the DateTime intersects the query interval; this is a coarse-grained filter
-  def configureIndexIterator(
-      featureType: SimpleFeatureType,
-      query: Query,
-      featureEncoding: FeatureEncoding,
-      filter: Option[Filter],
-      transformsCoverFilter: Boolean): IteratorSetting = {
+  def configureIndexIterator(featureType: SimpleFeatureType,
+                             query: Query,
+                             featureEncoding: FeatureEncoding,
+                             filter: Option[Filter],
+                             transformsCoverFilter: Boolean): IteratorSetting = {
 
-    val cfg = new IteratorSetting(iteratorPriority_SpatioTemporalIterator,
-      "within-" + randomPrintableString(5),classOf[IndexIterator])
+    val cfg = new IteratorSetting(iteratorPriority_SpatioTemporalIterator, classOf[IndexIterator])
 
     configureStFilter(cfg, filter)
     if (transformsCoverFilter) {
@@ -183,30 +181,33 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
   // returns only the data entries -- no index entries -- for items that either:
   // 1) the GeoHash-box intersects the query polygon; this is a coarse-grained filter
   // 2) the DateTime intersects the query interval; this is a coarse-grained filter
-  def configureSpatioTemporalIntersectingIterator(
-      featureType: SimpleFeatureType,
-      query: Query,
-      featureEncoding: FeatureEncoding,
-      stFilter: Option[Filter],
-      ecqlFilter: Option[String],
-      isDensity: Boolean): IteratorSetting = {
+  def configureSTII(featureType: SimpleFeatureType,
+                    query: Query,
+                    featureEncoding: FeatureEncoding,
+                    stFilter: Option[Filter],
+                    ecqlFilter: Option[String],
+                    isDensity: Boolean): IteratorSetting = {
     val cfg = new IteratorSetting(iteratorPriority_SpatioTemporalIterator,
-      "within-" + randomPrintableString(5),
       classOf[SpatioTemporalIntersectingIterator])
     configureStFilter(cfg, stFilter)
     configureFeatureType(cfg, featureType)
     configureFeatureEncoding(cfg, featureEncoding)
     configureTransforms(cfg, query)
     configureEcqlFilter(cfg, ecqlFilter)
-    if (isDensity) cfg.addOption(GEOMESA_ITERATORS_IS_DENSITY_TYPE, "isDensity")
+    if (isDensity) {
+      cfg.addOption(GEOMESA_ITERATORS_IS_DENSITY_TYPE, "isDensity")
+    }
     cfg
   }
 
-  def planQuery(filter: KeyPlanningFilter,
+  /**
+   * Gets accumulo ranges and column families based on the key plan
+   */
+  def getRanges(filter: KeyPlanningFilter,
                 iter: IteratorChoice,
                 output: ExplainerOutputType,
                 keyPlanner: KeyPlanner,
-                cfPlanner: ColumnFamilyPlanner): QueryPlan = {
+                cfPlanner: ColumnFamilyPlanner): (Seq[AccRange], Seq[Text]) = {
     output(s"Planning query")
 
     val indexOnly = iter match {
@@ -215,58 +216,42 @@ class STIdxStrategy extends Strategy with Logging with IndexFilterHelpers {
     }
 
     val keyPlan = keyPlanner.getKeyPlan(filter, indexOnly, output)
-
     val columnFamilies = cfPlanner.getColumnFamiliesToFetch(filter)
 
     // always try to use range(s) to remove easy false-positives
     val accRanges: Seq[org.apache.accumulo.core.data.Range] = keyPlan match {
-      case KeyRanges(ranges) => ranges.map(r => new org.apache.accumulo.core.data.Range(r.start, r.end))
-      case _ => Seq(new org.apache.accumulo.core.data.Range())
+      case KeyRanges(ranges) => ranges.map(r => new AccRange(r.start, r.end))
+      case _ => Seq(new AccRange())
     }
 
     output(s"Total ranges: ${accRanges.size} - ${accRanges.take(5)}")
-
-    // always try to set a RowID regular expression
-    //@TODO this is broken/disabled as a result of the KeyTier
-    val iters =
-      keyPlan.toRegex match {
-        case KeyRegex(regex) => Seq(configureRowRegexIterator(regex))
-        case _               => Seq()
-      }
 
     // if you have a list of distinct column-family entries, fetch them
     val cf = columnFamilies match {
       case KeyList(keys) =>
         output(s"ColumnFamily Planner: ${keys.size} : ${keys.take(20)}")
-        keys.map { cf => new Text(cf) }
+        keys.map(cf => new Text(cf))
 
-      case _ =>
-        Seq()
+      case _ => Seq()
     }
 
-    QueryPlan(iters, accRanges, cf)
+    (accRanges, cf)
   }
 }
 
-object STIdxStrategy extends StrategyProvider with IndexFilterHelpers {
+object BaseSpatioTemporalStrategy extends IndexFilterHelpers  {
 
-  import org.locationtech.geomesa.core.filter.spatialFilters
-
-  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints = NoopHints) =
-    if (spatialFilters(filter)) {
-      val e1 = filter.asInstanceOf[BinarySpatialOperator].getExpression1
-      val e2 = filter.asInstanceOf[BinarySpatialOperator].getExpression2
-      checkOrder(e1, e2).filter(p => p.name == sft.getGeometryDescriptor.getLocalName).map { property =>
-        val geomToCover = getGeometryToCover(Seq(filter), sft)._2
-        val cost = hints.spatialCost(geomToCover)
-        StrategyDecision(new STIdxStrategy, cost)
-      }
-    } else {
-      None
-    }
-
+  /**
+   * Does two things:
+   *
+   * 1. Updates the filters to account for things like international date line, invalid bounding boxes, etc.
+   * 2. Calculates a geometry that covers all the filters.
+   *
+   * @param geometryFilters
+   * @param sft
+   * @return
+   */
   def getGeometryToCover(geometryFilters: Seq[Filter], sft: SimpleFeatureType): (Seq[Filter], Geometry) = {
-
     val tweakedGeoms = geometryFilters.map(updateTopologicalFilters(_, sft))
 
     // standardize the two key query arguments:  polygon and date-range

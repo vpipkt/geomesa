@@ -21,6 +21,7 @@ import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.data
 import org.locationtech.geomesa.core.filter.TestFilters._
+import org.locationtech.geomesa.core.index.strategies._
 import org.locationtech.geomesa.core.util.SftBuilder
 import org.locationtech.geomesa.core.util.SftBuilder.Opts
 import org.locationtech.geomesa.utils.stats.Cardinality

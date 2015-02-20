@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import org.geotools.data.Query
 import org.locationtech.geomesa.core.index.FilterHelper._
 import org.locationtech.geomesa.core.index.QueryHints._
 import org.opengis.feature.simple.SimpleFeatureType
-import org.opengis.filter.{And, Filter, PropertyIsLike}
+import org.opengis.filter.{And, PropertyIsLike}
 
 import scala.collection.JavaConversions._
 
