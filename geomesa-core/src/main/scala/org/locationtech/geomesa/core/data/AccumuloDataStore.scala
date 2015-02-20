@@ -333,14 +333,16 @@ class AccumuloDataStore(val connector: Connector,
 
   def createTablesForType(featureType: SimpleFeatureType, maxShard: Int) {
     val spatioTemporalIdxTable = formatSpatioTemporalIdxTableName(catalogTable, featureType)
+    val timeIndexTable         = formatTimeIndexTableName(catalogTable, featureType)
     val attributeIndexTable    = formatAttrIdxTableName(catalogTable, featureType)
     val recordTable            = formatRecordTableName(catalogTable, featureType)
 
-    List(spatioTemporalIdxTable, attributeIndexTable, recordTable).foreach(ensureTableExists)
+    Seq(spatioTemporalIdxTable, attributeIndexTable, recordTable, timeIndexTable).foreach(ensureTableExists)
 
     configureRecordTable(featureType, recordTable)
     configureAttrIdxTable(featureType, attributeIndexTable)
-    configureSpatioTemporalIdxTable(maxShard, featureType, spatioTemporalIdxTable)
+    configureSpatioTemporalIdxTable(maxShard, spatioTemporalIdxTable)
+    configureSpatioTemporalIdxTable(maxShard, timeIndexTable) // TODO use other max shard
   }
 
   private def ensureTableExists(table: String) =
@@ -379,10 +381,7 @@ class AccumuloDataStore(val connector: Connector,
     }
   }
 
-  def configureSpatioTemporalIdxTable(maxShard: Int,
-                                      featureType: SimpleFeatureType,
-                                      tableName: String) {
-
+  def configureSpatioTemporalIdxTable(maxShard: Int, tableName: String) {
     if (maxShard > 1) {
       val splits = (1 to maxShard - 1).map { i => s"%0${maxShard.toString.length}d".format(i) }.map(new Text(_))
       tableOps.addSplits(tableName, new java.util.TreeSet(splits))
@@ -696,6 +695,25 @@ class AccumuloDataStore(val connector: Connector,
   }
 
   /**
+   * Reads the index schema format out of the metadata
+   *
+   * @param featureName
+   * @return
+   */
+  def getTimeIndexSchemaFmt(featureName: String) =
+    metadata.read(featureName, TIME_SCHEMA_KEY).getOrElse(EMPTY_STRING)
+
+  /**
+   * Updates the index schema format - WARNING don't use this unless you know what you're doing.
+   * @param sft
+   * @param schema
+   */
+  def setTimeIndexSchemaFmt(sft: String, schema: String) = {
+    metadata.insert(sft, TIME_SCHEMA_KEY, schema)
+    metadata.expireCache(sft)
+  }
+
+  /**
    * Gets the internal geomesa version number for a given feature type
    *
    * @param sft
@@ -878,10 +896,13 @@ class AccumuloDataStore(val connector: Connector,
     validateMetadata(typeName)
     checkWritePermissions(typeName)
     val sft = getSchema(typeName)
+    val version = geomesaVersion(typeName)
     val indexSchemaFmt = getIndexSchemaFmt(typeName)
+    val timeIndexSchemaFmt = getTimeIndexSchemaFmt(typeName)
     val fe = SimpleFeatureEncoder(sft, getFeatureEncoding(sft))
     val encoder = IndexSchema.buildKeyEncoder(indexSchemaFmt, fe)
-    new ModifyAccumuloFeatureWriter(sft, encoder, connector, fe, writeVisibilities, filter, this)
+    val timeEncoder = if (version > 2) IndexSchema.buildKeyEncoder(timeIndexSchemaFmt, fe) else null
+    new ModifyAccumuloFeatureWriter(sft, encoder, timeEncoder, connector, fe, writeVisibilities, filter, this)
   }
 
   /* optimized for GeoTools API to return writer ONLY for appending (aka don't scan table) */
@@ -890,10 +911,13 @@ class AccumuloDataStore(val connector: Connector,
     validateMetadata(typeName)
     checkWritePermissions(typeName)
     val sft = getSchema(typeName)
+    val version = geomesaVersion(typeName)
     val indexSchemaFmt = getIndexSchemaFmt(typeName)
+    val timeIndexSchemaFmt = getTimeIndexSchemaFmt(typeName)
     val fe = SimpleFeatureEncoder(sft, getFeatureEncoding(sft))
     val encoder = IndexSchema.buildKeyEncoder(indexSchemaFmt, fe)
-    new AppendAccumuloFeatureWriter(sft, encoder, connector, fe, writeVisibilities, this)
+    val timeEncoder = if (version > 2) IndexSchema.buildKeyEncoder(timeIndexSchemaFmt, fe) else null
+    new AppendAccumuloFeatureWriter(sft, encoder, timeEncoder, connector, fe, writeVisibilities, this)
   }
 
   override def getUnsupportedFilter(featureName: String, filter: Filter): Filter = Filter.INCLUDE

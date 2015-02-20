@@ -66,6 +66,7 @@ object AccumuloFeatureWriter {
 
 abstract class AccumuloFeatureWriter(featureType: SimpleFeatureType,
                                      indexEncoder: IndexEntryEncoder,
+                                     timeIndexEncoder: IndexEntryEncoder,
                                      encoder: SimpleFeatureEncoder,
                                      ds: AccumuloDataStore,
                                      visibility: String)
@@ -83,25 +84,26 @@ abstract class AccumuloFeatureWriter(featureType: SimpleFeatureType,
   // version of the datastore (i.e. single table vs catalog
   // table + index tables)
   protected val writers: List[FeatureWriterFn] = {
-    val stWriter = {
-      val stTable = ds.getSpatioTemporalIdxTableName(featureType)
-      List(SpatioTemporalTable.spatioTemporalWriter(multiBWWriter.getBatchWriter(stTable), indexEncoder))
+    val writers = scala.collection.mutable.ArrayBuffer.empty[FeatureWriterFn]
+
+    val stBw = multiBWWriter.getBatchWriter(ds.getSpatioTemporalIdxTableName(featureType))
+    val stWriter = SpatioTemporalTable.spatioTemporalWriter(stBw, indexEncoder)
+
+    val rowIdPrefix = org.locationtech.geomesa.core.index.getTableSharingPrefix(featureType)
+    val attrBw = multiBWWriter.getBatchWriter(ds.getAttrIdxTableName(featureType))
+    val recBw = multiBWWriter.getBatchWriter(ds.getRecordTableForType(featureType))
+    val attrWriter = AttributeTable.attrWriter(attrBw, featureType, indexedAttributes, rowIdPrefix)
+    val recWriter = RecordTable.recordWriter(recBw, encoder, rowIdPrefix)
+
+    writers.append(stWriter, attrWriter, recWriter)
+
+    if (ds.geomesaVersion(featureType) > 2) {
+      val timeBw = multiBWWriter.getBatchWriter(ds.getTimeIndexTableName(featureType))
+      val timeWriter = TimeIndexTable.timeIndexWriter(timeBw, timeIndexEncoder)
+      writers.append(timeWriter)
     }
 
-    val attrWriters = if (ds.geomesaVersion(featureType) < 1) List.empty else {
-      val attrWriter = multiBWWriter.getBatchWriter(ds.getAttrIdxTableName(featureType))
-      val recWriter = multiBWWriter.getBatchWriter(ds.getRecordTableForType(featureType))
-      val rowIdPrefix = org.locationtech.geomesa.core.index.getTableSharingPrefix(featureType)
-      List(AttributeTable.attrWriter(attrWriter, featureType, indexedAttributes, rowIdPrefix),
-           RecordTable.recordWriter(recWriter, encoder, rowIdPrefix))
-    }
-
-    val temporalWriter = if (ds.geomesaVersion(featureType) < 3) List.empty else {
-      val temporalTable = ds.getTimeIndexTableName(featureType)
-      List(TimeIndexTable.timeIndexWriter(multiBWWriter.getBatchWriter(temporalTable), indexEncoder))
-    }
-
-    stWriter ::: attrWriters ::: temporalWriter
+    writers.toList
   }
 
   def getFeatureType: SimpleFeatureType = featureType
@@ -141,11 +143,12 @@ abstract class AccumuloFeatureWriter(featureType: SimpleFeatureType,
 
 class AppendAccumuloFeatureWriter(featureType: SimpleFeatureType,
                                   indexEncoder: IndexEntryEncoder,
+                                  timeIndexEncoder: IndexEntryEncoder,
                                   connector: Connector,
                                   encoder: SimpleFeatureEncoder,
                                   visibility: String,
                                   ds: AccumuloDataStore)
-  extends AccumuloFeatureWriter(featureType, indexEncoder, encoder, ds, visibility) {
+  extends AccumuloFeatureWriter(featureType, indexEncoder, timeIndexEncoder, encoder, ds, visibility) {
 
   var currentFeature: SimpleFeature = null
 
@@ -164,12 +167,13 @@ class AppendAccumuloFeatureWriter(featureType: SimpleFeatureType,
 
 class ModifyAccumuloFeatureWriter(featureType: SimpleFeatureType,
                                   indexEncoder: IndexEntryEncoder,
+                                  timeIndexEncoder: IndexEntryEncoder,
                                   connector: Connector,
                                   encoder: SimpleFeatureEncoder,
                                   visibility: String,
                                   filter: Filter,
                                   dataStore: AccumuloDataStore)
-  extends AccumuloFeatureWriter(featureType, indexEncoder, encoder, dataStore, visibility) {
+  extends AccumuloFeatureWriter(featureType, indexEncoder, timeIndexEncoder, encoder, dataStore, visibility) {
 
   val reader = dataStore.getFeatureReader(featureType.getTypeName, new Query(featureType.getTypeName, filter))
 
@@ -181,26 +185,26 @@ class ModifyAccumuloFeatureWriter(featureType: SimpleFeatureType,
   // version of the datastore (i.e. single table vs catalog
   // table + index tables)
   val removers: List[FeatureWriterFn] = {
-    val stWriter = {
-      val stTable = dataStore.getSpatioTemporalIdxTableName(featureType)
-      List(SpatioTemporalTable.removeSpatioTemporalIdx(multiBWWriter.getBatchWriter(stTable), indexEncoder))
-    }
+    val removers = scala.collection.mutable.ArrayBuffer.empty[FeatureWriterFn]
+
+    val stBw = multiBWWriter.getBatchWriter(dataStore.getSpatioTemporalIdxTableName(featureType))
+    val stRemover = SpatioTemporalTable.removeSpatioTemporalIdx(stBw, indexEncoder)
 
     val rowIdPrefix = org.locationtech.geomesa.core.index.getTableSharingPrefix(featureType)
+    val attrBw = multiBWWriter.getBatchWriter(dataStore.getAttrIdxTableName(featureType))
+    val recBw = multiBWWriter.getBatchWriter(dataStore.getRecordTableForType(featureType))
+    val attrRemover = AttributeTable.removeAttrIdx(attrBw, featureType, indexedAttributes, rowIdPrefix)
+    val recRemover = RecordTable.recordDeleter(recBw, encoder, rowIdPrefix)
 
-    val attrWriters = if (dataStore.geomesaVersion(featureType) < 1) List.empty else {
-      val attrWriter = multiBWWriter.getBatchWriter(dataStore.getAttrIdxTableName(featureType))
-      val recWriter = multiBWWriter.getBatchWriter(dataStore.getRecordTableForType(featureType))
-      List(AttributeTable.removeAttrIdx(attrWriter, featureType, indexedAttributes, rowIdPrefix),
-           RecordTable.recordDeleter(recWriter, encoder, rowIdPrefix))
+    removers.append(stRemover, attrRemover, recRemover)
+
+    if (dataStore.geomesaVersion(featureType) > 2) {
+      val timeBw = multiBWWriter.getBatchWriter(dataStore.getTimeIndexTableName(featureType))
+      val timeRemover = TimeIndexTable.removeTimeIndex(timeBw, timeIndexEncoder)
+      removers.append(timeRemover)
     }
 
-    val temporalWriter = if (dataStore.geomesaVersion(featureType) < 3) List.empty else {
-      val temporalTable = dataStore.getTimeIndexTableName(featureType)
-      List(TimeIndexTable.removeTimeIndex(multiBWWriter.getBatchWriter(temporalTable), indexEncoder))
-    }
-
-    stWriter ::: attrWriters ::: temporalWriter
+    removers.toList
   }
 
   import scala.collection.JavaConversions._

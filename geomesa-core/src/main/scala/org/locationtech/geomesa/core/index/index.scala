@@ -63,10 +63,10 @@ package object index {
     sft.getUserData.put(SFT_INDEX_SCHEMA, indexSchema)
   }
 
-  def getTimeIndexSchema(sft: SimpleFeatureType) = Option(sft.getUserData.get(SFT_INDEX_SCHEMA)).map { _.toString }
-  def setTimeIndexSchema(sft: SimpleFeatureType, indexSchema: String) {
-    sft.getUserData.put(SFT_INDEX_SCHEMA, indexSchema)
-  }
+  def getTimeIndexSchema(sft: SimpleFeatureType) =
+    Option(sft.getUserData.get(SFT_TIME_INDEX_SCHEMA)).map { _.toString }
+  def setTimeIndexSchema(sft: SimpleFeatureType, indexSchema: String) =
+    sft.getUserData.put(SFT_TIME_INDEX_SCHEMA, indexSchema)
 
   def getTableSharing(sft: SimpleFeatureType): Boolean = {
     //  If no data is stored in Accumulo, it means we have an old table, so that means 'false'

@@ -139,7 +139,7 @@ class StaticStrategyHints extends StrategyHints {
    * @param end
    */
   override def temporalCost(start: Date, end: Date) =
-    (Math.abs(end.getTime - start.getTime) % 1000) * temporalCostPerSecond + 3L
+    Math.abs(end.getTime - start.getTime) / 1000 * temporalCostPerSecond + 3L
 }
 
 object StaticStrategyHints extends Logging {
@@ -162,8 +162,8 @@ object StaticStrategyHints extends Logging {
   }.getOrElse {
     logger.warn(s"Unable to load $file - using defaults")
     Map(TEMPORAL_COST_PER_SECOND -> "1",
-        SPATIAL_COST_PER_DEGREE -> "8400",
-        ATTRIBUTE_COST_UNKNOWN -> "8400000")
+        SPATIAL_COST_PER_DEGREE  -> "86400",
+        ATTRIBUTE_COST_UNKNOWN   -> "8640000")
   }
 
   val temporalCostPerSecond = knobs(TEMPORAL_COST_PER_SECOND).toLong

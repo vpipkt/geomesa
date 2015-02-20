@@ -42,9 +42,7 @@ object RecordIdxStrategy extends StrategyProvider {
 
   import scala.collection.JavaConversions._
 
-  val ff = CommonFactoryFinder.getFilterFactory2
-
-  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints) =
+  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints = NoopHints) =
     if (filterIsId(filter)) {
       val ids = filter.asInstanceOf[Id].getIdentifiers.map(_.toString).toSeq
       val cost = hints.idCost(ids)
@@ -69,8 +67,6 @@ object RecordIdxStrategy extends StrategyProvider {
         Some(newFilter)
       }
     }
-
-
 }
 
 class RecordIdxStrategy extends Strategy with Logging {

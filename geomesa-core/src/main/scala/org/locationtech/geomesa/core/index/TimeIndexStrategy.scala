@@ -18,17 +18,14 @@ package org.locationtech.geomesa.core.index
 
 import java.util.Date
 
-import org.apache.accumulo.core.data.Range
 import org.geotools.data.Query
 import org.geotools.temporal.`object`.DefaultPeriod
 import org.locationtech.geomesa.core
 import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
-import org.locationtech.geomesa.core.data.tables.AttributeTable
-import org.locationtech.geomesa.core.index.AttributeIndexStrategy._
 import org.opengis.feature.simple.SimpleFeatureType
-import org.opengis.filter.expression.{Literal, PropertyName}
-import org.opengis.filter.temporal.{During, After, Before, TEquals}
 import org.opengis.filter._
+import org.opengis.filter.expression.{Literal, PropertyName}
+import org.opengis.filter.temporal.{After, Before, During, TEquals}
 
 class TimeIndexStrategy extends Strategy {
 
@@ -44,26 +41,23 @@ class TimeIndexStrategy extends Strategy {
 
 object TimeIndexStrategy extends StrategyProvider {
 
-  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints) = {
+  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints = NoopHints) = {
     val dtgOption = core.index.getDtgFieldName(sft)
     dtgOption.flatMap { case dtg =>
+      val indexed: (PropertyLiteral) => Boolean = (p: PropertyLiteral) => p.name == dtg
       filter match {
         case f: PropertyIsEqualTo =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
-            val cost = hints.attributeCost(descriptor, value, value)
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            val cost = hints.temporalCost(value, value)
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: TEquals =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
-            val cost = hints.attributeCost(descriptor, value, value)
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            val cost = hints.temporalCost(value, value)
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: PropertyIsBetween =>
@@ -71,100 +65,85 @@ object TimeIndexStrategy extends StrategyProvider {
           if (name == dtg) {
             val lower = f.getLowerBoundary.asInstanceOf[Literal].evaluate(null, classOf[Date])
             val upper = f.getUpperBoundary.asInstanceOf[Literal].evaluate(null, classOf[Date])
-            val descriptor = sft.getDescriptor(name)
-            val cost = hints.attributeCost(descriptor, lower, upper)
+            val cost = hints.temporalCost(lower, upper)
             Some(StrategyDecision(new TimeIndexStrategy, cost))
           } else {
             None
           }
 
         case f: PropertyIsGreaterThan =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
             val cost = if (property.flipped) {
-              hints.attributeCost(descriptor, new Date(0), value)
+              hints.temporalCost(new Date(0), value)
             } else {
-              hints.attributeCost(descriptor, value, new Date()) // TODO project into future?
+              hints.temporalCost(value, new Date()) // TODO project into future?
             }
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: PropertyIsGreaterThanOrEqualTo =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
             val cost = if (property.flipped) {
-              hints.attributeCost(descriptor, new Date(0), value)
+              hints.temporalCost(new Date(0), value)
             } else {
-              hints.attributeCost(descriptor, value, new Date()) // TODO project into future?
+              hints.temporalCost(value, new Date()) // TODO project into future?
             }
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: PropertyIsLessThan =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
             val cost = if (property.flipped) {
-              hints.attributeCost(descriptor, value, new Date()) // TODO project into future?
+              hints.temporalCost(value, new Date()) // TODO project into future?
             } else {
-              hints.attributeCost(descriptor, new Date(0), value)
+              hints.temporalCost(new Date(0), value)
             }
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: PropertyIsLessThanOrEqualTo =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
             val cost = if (property.flipped) {
-              hints.attributeCost(descriptor, value, new Date()) // TODO project into future?
+              hints.temporalCost(value, new Date()) // TODO project into future?
             } else {
-              hints.attributeCost(descriptor, new Date(0), value)
+              hints.temporalCost(new Date(0), value)
             }
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: Before =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
             val cost = if (property.flipped) {
-              hints.attributeCost(descriptor, value, new Date()) // TODO project into future?
+              hints.temporalCost(value, new Date()) // TODO project into future?
             } else {
-              hints.attributeCost(descriptor, new Date(0), value)
+              hints.temporalCost(new Date(0), value)
             }
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: After =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val value = property.literal.evaluate(null, classOf[Date])
             val cost = if (property.flipped) {
-              hints.attributeCost(descriptor, new Date(0), value)
+              hints.temporalCost(new Date(0), value)
             } else {
-              hints.attributeCost(descriptor, value, new Date()) // TODO project into future?
+              hints.temporalCost(value, new Date()) // TODO project into future?
             }
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         case f: During =>
-          val property = checkOrder(f.getExpression1, f.getExpression2)
-          if (property.name != dtg) None else {
-            val descriptor = sft.getDescriptor(property.name)
+          checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
             val during = property.literal.getValue.asInstanceOf[DefaultPeriod]
             val lower = during.getBeginning.getPosition.getDate
             val upper = during.getEnding.getPosition.getDate
-            val cost = hints.attributeCost(descriptor, lower, upper)
-            Some(StrategyDecision(new TimeIndexStrategy, cost))
+            val cost = hints.temporalCost(lower, upper)
+            StrategyDecision(new TimeIndexStrategy, cost)
           }
 
         // doesn't match any temporal strategy

@@ -257,34 +257,27 @@ object AttributeIndexStrategy extends StrategyProvider {
 
   import org.locationtech.geomesa.utils.geotools.Conversions._
 
-  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints) =
+  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints = NoopHints) = {
+    val indexed: (PropertyLiteral) => Boolean = (p: PropertyLiteral) => sft.getDescriptor(p.name).isIndexed
     filter match {
       // equals strategy checks
       case f: PropertyIsEqualTo =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val value = property.literal.getValue
           val range = AccRange.exact(getEncodedAttrIdxRow(sft, property.name, value))
           val strategy = new AttributeIdxEqualsStrategy(filter, range, property.name)
-          val cost = hints.attributeCost(descriptor, value, value)
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          val cost = hints.attributeCost(sft.getDescriptor(property.name), value, value)
+          StrategyDecision(strategy, cost)
         }
 
       case f: TEquals =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val value = property.literal.getValue
           val exact = getEncodedAttrIdxRow(sft, property.name, value)
           val range = AccRange.exact(exact)
           val strategy = new AttributeIdxEqualsStrategy(filter, range, property.name)
-          val cost = hints.attributeCost(descriptor, value, value)
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          val cost = hints.attributeCost(sft.getDescriptor(property.name), value, value)
+          StrategyDecision(strategy, cost)
         }
 
       case f: PropertyIsNil =>
@@ -353,9 +346,7 @@ object AttributeIndexStrategy extends StrategyProvider {
         }
 
       case f: PropertyIsGreaterThan =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val range = if (property.flipped) {
             lessThanRange(sft, property.name, property.literal.getValue)
           } else {
@@ -363,19 +354,15 @@ object AttributeIndexStrategy extends StrategyProvider {
           }
           val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
           val cost = if (property.flipped) {
-            hints.attributeCost(descriptor, "", property.literal.getValue)
+            hints.attributeCost(sft.getDescriptor(property.name), "", property.literal.getValue)
           } else {
-            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+            hints.attributeCost(sft.getDescriptor(property.name), property.literal.getValue, "~~~")
           }
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          StrategyDecision(strategy, cost)
         }
 
       case f: PropertyIsGreaterThanOrEqualTo =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val range = if (property.flipped) {
             lessThanOrEqualRange(sft, property.name, property.literal.getValue)
           } else {
@@ -383,19 +370,15 @@ object AttributeIndexStrategy extends StrategyProvider {
           }
           val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
           val cost = if (property.flipped) {
-            hints.attributeCost(descriptor, "", property.literal.getValue)
+            hints.attributeCost(sft.getDescriptor(property.name), "", property.literal.getValue)
           } else {
-            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+            hints.attributeCost(sft.getDescriptor(property.name), property.literal.getValue, "~~~")
           }
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          StrategyDecision(strategy, cost)
         }
 
       case f: PropertyIsLessThan =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val range = if (property.flipped) {
             greaterThanRange(sft, property.name, property.literal.getValue)
           } else {
@@ -403,19 +386,15 @@ object AttributeIndexStrategy extends StrategyProvider {
           }
           val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
           val cost = if (property.flipped) {
-            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+            hints.attributeCost(sft.getDescriptor(property.name), property.literal.getValue, "~~~")
           } else {
-            hints.attributeCost(descriptor, "", property.literal.getValue)
+            hints.attributeCost(sft.getDescriptor(property.name), "", property.literal.getValue)
           }
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          StrategyDecision(strategy, cost)
         }
 
       case f: PropertyIsLessThanOrEqualTo =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val range = if (property.flipped) {
             greaterThanOrEqualRange(sft, property.name, property.literal.getValue)
           } else {
@@ -423,19 +402,15 @@ object AttributeIndexStrategy extends StrategyProvider {
           }
           val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
           val cost = if (property.flipped) {
-            hints.attributeCost(descriptor, property.literal.getValue, "~~~")
+            hints.attributeCost(sft.getDescriptor(property.name), property.literal.getValue, "~~~")
           } else {
-            hints.attributeCost(descriptor, "", property.literal.getValue)
+            hints.attributeCost(sft.getDescriptor(property.name), "", property.literal.getValue)
           }
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          StrategyDecision(strategy, cost)
         }
 
       case f: Before =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (sft.getDescriptor(property.name).isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val range = if (property.flipped) {
             greaterThanRange(sft, property.name, property.literal.getValue)
           } else {
@@ -443,20 +418,16 @@ object AttributeIndexStrategy extends StrategyProvider {
           }
           val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
           val cost = if (property.flipped) {
-            hints.attributeCost(descriptor, property.literal.evaluate(null, classOf[Date]),
+            hints.attributeCost(sft.getDescriptor(property.name), property.literal.evaluate(null, classOf[Date]),
               new Date(Long.MaxValue))
           } else {
-            hints.attributeCost(descriptor, new Date(0), property.literal.evaluate(null, classOf[Date]))
+            hints.attributeCost(sft.getDescriptor(property.name), new Date(0), property.literal.evaluate(null, classOf[Date]))
           }
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          StrategyDecision(strategy, cost)
         }
 
       case f: After =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val range = if (property.flipped) {
             lessThanRange(sft, property.name, property.literal.getValue)
           } else {
@@ -464,20 +435,16 @@ object AttributeIndexStrategy extends StrategyProvider {
           }
           val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
           val cost = if (property.flipped) {
-            hints.attributeCost(descriptor, new Date(0), property.literal.evaluate(null, classOf[Date]))
+            hints.attributeCost(sft.getDescriptor(property.name), new Date(0), property.literal.evaluate(null, classOf[Date]))
           } else {
-            hints.attributeCost(descriptor, property.literal.evaluate(null, classOf[Date]),
+            hints.attributeCost(sft.getDescriptor(property.name), property.literal.evaluate(null, classOf[Date]),
               new Date(Long.MaxValue))
           }
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          StrategyDecision(strategy, cost)
         }
 
       case f: During =>
-        val property = checkOrder(f.getExpression1, f.getExpression2)
-        val descriptor = sft.getDescriptor(property.name)
-        if (descriptor.isIndexed) {
+        checkOrder(f.getExpression1, f.getExpression2).filter(indexed).map { property =>
           val during = property.literal.getValue.asInstanceOf[DefaultPeriod]
           val lower = during.getBeginning.getPosition.getDate
           val upper = during.getEnding.getPosition.getDate
@@ -485,15 +452,14 @@ object AttributeIndexStrategy extends StrategyProvider {
           val upperBound = getEncodedAttrIdxRow(sft, property.name, upper)
           val range = new AccRange(lowerBound, true, upperBound, true)
           val strategy = new AttributeIdxRangeStrategy(filter, range, property.name)
-          val cost = hints.attributeCost(descriptor, lower, upper)
-          Some(StrategyDecision(strategy, cost))
-        } else {
-          None
+          val cost = hints.attributeCost(sft.getDescriptor(property.name), lower, upper)
+          StrategyDecision(strategy, cost)
         }
 
       // doesn't match any attribute strategy
       case _ => None
     }
+  }
 
   /**
    * Gets a row key that can used as a range for an attribute query.

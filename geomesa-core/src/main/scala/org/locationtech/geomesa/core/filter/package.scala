@@ -237,6 +237,7 @@ package object filter {
   def primarySpatialFilters(filter: Filter, sft: SimpleFeatureType): Boolean = {
     val geom = sft.getGeometryDescriptor.getLocalName
     val primary = filter match {
+      // TODO could prop be in expression2?
       case f: BinarySpatialOperator if f.getExpression1.asInstanceOf[PropertyName].getPropertyName == geom => true
       case _ => false
     }

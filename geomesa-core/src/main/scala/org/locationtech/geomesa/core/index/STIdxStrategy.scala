@@ -252,17 +252,14 @@ object STIdxStrategy extends StrategyProvider with IndexFilterHelpers {
 
   import org.locationtech.geomesa.core.filter.spatialFilters
 
-  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints) =
+  override def getStrategy(filter: Filter, sft: SimpleFeatureType, hints: StrategyHints = NoopHints) =
     if (spatialFilters(filter)) {
       val e1 = filter.asInstanceOf[BinarySpatialOperator].getExpression1
       val e2 = filter.asInstanceOf[BinarySpatialOperator].getExpression2
-      val property = checkOrder(e1, e2)
-      if (property.name == sft.getGeometryDescriptor.getLocalName) {
+      checkOrder(e1, e2).filter(p => p.name == sft.getGeometryDescriptor.getLocalName).map { property =>
         val geomToCover = getGeometryToCover(Seq(filter), sft)._2
         val cost = hints.spatialCost(geomToCover)
-        Some(StrategyDecision(new STIdxStrategy, cost))
-      } else {
-        None
+        StrategyDecision(new STIdxStrategy, cost)
       }
     } else {
       None

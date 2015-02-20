@@ -21,7 +21,9 @@ import org.apache.accumulo.core.client.{BatchDeleter, BatchWriter}
 import org.apache.accumulo.core.data.Key
 import org.locationtech.geomesa.core.data.AccumuloFeatureWriter.FeatureWriterFn
 import org.locationtech.geomesa.core.index.{IndexEntryEncoder, _}
-import org.opengis.feature.simple.SimpleFeatureType
+import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
+
+import scala.util.{Failure, Success, Try}
 
 object TimeIndexTable extends Logging {
 

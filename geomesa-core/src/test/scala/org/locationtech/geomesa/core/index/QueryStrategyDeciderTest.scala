@@ -187,11 +187,6 @@ class QueryStrategyDeciderTest extends Specification {
 
       getStrategy(fs) must beAnInstanceOf[RecordIdxStrategy]
     }
-
-    "get the stidx strategy if not catalog" in {
-      val fs = "IN ('val56')"
-      getStrategy(fs, 0) must beAnInstanceOf[STIdxStrategy]
-    }
   }
 
   "Id and Spatio-temporal filters" should {
@@ -204,7 +199,7 @@ class QueryStrategyDeciderTest extends Specification {
 
   "Id and Attribute filters" should {
     "get the records strategy" in {
-      val fs = "IN ('val56') AND attr2 = val56"
+      val fs = "IN ('val56') AND attr2 = 'val56'"
 
       getStrategy(fs) must beAnInstanceOf[RecordIdxStrategy]
     }
@@ -225,8 +220,8 @@ class QueryStrategyDeciderTest extends Specification {
       forall(stIdxStrategyPredicates) { getStStrategy }
     }
 
-    "get the attribute strategy with attributeAndGeometricPredicates" in {
-      forall(attributeAndGeometricPredicates) { getAttributeIdxStrategy }
+    "get the attribute strategy with attributeAndLargeGeometricPredicates" in {
+      forall(attributeAndLargeGeometricPredicates) { getAttributeIdxStrategy }
     }
 
     "get the attribute strategy with attrIdxStrategyPredicates" in {

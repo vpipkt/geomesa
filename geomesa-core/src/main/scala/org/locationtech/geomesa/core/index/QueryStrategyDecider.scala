@@ -26,8 +26,6 @@ import scala.collection.JavaConversions._
 
 object QueryStrategyDecider {
 
-  case class StrategyAndFilter(strategy: Strategy, filter: Filter)
-
   def chooseStrategy(sft: SimpleFeatureType, query: Query, hints: StrategyHints, version: Int): Strategy = {
 
     val isDensity = query.getHints.containsKey(BBOX_KEY) || query.getHints.contains(TIME_BUCKETS_KEY)
@@ -40,9 +38,10 @@ object QueryStrategyDecider {
 
     // check for simple filters first
     // order - id, attribute, temporal
-    val strategy = RecordIdxStrategy.getStrategy(filter, sft, NoopHints)
-        .orElse(AttributeIndexStrategy.getStrategy(filter, sft, NoopHints))
-        .orElse(if (version < 3) None else TimeIndexStrategy.getStrategy(filter, sft, NoopHints))
+    val strategy = RecordIdxStrategy.getStrategy(filter, sft)
+        .orElse(AttributeIndexStrategy.getStrategy(filter, sft))
+        // TODO re-enable this
+        // .orElse(if (version < 3) None else TimeIndexStrategy.getStrategy(filter, sft))
         .map(_.strategy)
 
     strategy.getOrElse {
@@ -77,17 +76,13 @@ object QueryStrategyDecider {
     val temporalStrategies = if (version < 3) {
       Seq.empty
     } else {
-      filters.flatMap(TimeIndexStrategy.getStrategy(_, sft, hints))
+      // TODO re-enable this
+      // filters.flatMap(TimeIndexStrategy.getStrategy(_, sft, hints))
+      Seq.empty
     }
 
-    val bestRecordStrategy = recordStrategies.reduceOption(findCheapestStrategy)
-    val bestSpatialStrategy = spatialStrategies.reduceOption(findCheapestStrategy)
-    val bestTemporalStrategy = temporalStrategies.reduceOption(findCheapestStrategy)
-    val bestAttributeStrategy = attributeStrategies.reduceOption(findCheapestStrategy)
-
-    val bestStrategies =
-      Seq(bestRecordStrategy, bestSpatialStrategy, bestTemporalStrategy, bestAttributeStrategy)
-    val bestStrategy = bestStrategies.flatten.reduceOption(findCheapestStrategy).map(_.strategy)
+    val strategies = recordStrategies ++ spatialStrategies ++ attributeStrategies ++ temporalStrategies
+    val bestStrategy = strategies.reduceOption(findCheapestStrategy).map(_.strategy)
 
     bestStrategy.getOrElse(new STIdxStrategy)
   }
