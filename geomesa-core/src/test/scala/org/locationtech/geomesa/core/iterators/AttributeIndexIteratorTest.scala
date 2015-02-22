@@ -101,7 +101,7 @@ class AttributeIndexIteratorTest extends Specification with TestWithDataStore {
     def checkExplainStrategy(filter: String) = {
       val query = new Query(sftName, ECQL.toFilter(filter), Array("geom", "dtg"))
       val explain = new ExplainString()
-      ds.getFeatureReader(sftName, query).explainQuery(o = explain)
+      ds.explainQuery(sftName, query, explain)
       val output = explain.toString()
       val iter = output.split("\n").filter(_.startsWith("addScanIterator")).headOption
       iter.isDefined mustEqual true
@@ -137,7 +137,7 @@ class AttributeIndexIteratorTest extends Specification with TestWithDataStore {
       filters.foreach { case (filter, prop) =>
         val query = new Query(sftName, ECQL.toFilter(filter), Array("geom", "dtg") ++ prop)
         val explain = new ExplainString()
-        ds.getFeatureReader(sftName, query).explainQuery(o = explain)
+        ds.explainQuery(sftName, query, explain)
         val output = explain.toString()
         val iter = output.split("\n").filter(_.startsWith("addScanIterator")).headOption
         iter.isDefined mustEqual true

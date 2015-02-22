@@ -105,14 +105,14 @@ class AttributeIndexStrategyTest extends Specification {
   fs.addFeatures(featureCollection)
 
   val featureEncoding = ds.getFeatureEncoding(sft)
-  val queryExecutor = new QueryExecutor(sft, featureEncoding, null, null, ds, NoopHints)
+  val queryPlanner = new QueryPlanner(sft, featureEncoding, null, null, ds, NoopHints)
 
   def execute(expectedStrategy: Class[_], filter: String): List[String] = {
     val query = new Query(sftName, ECQL.toFilter(filter))
     val strategy = QueryStrategyDecider.chooseStrategy(sft, query, NoopHints, INTERNAL_GEOMESA_VERSION)
     strategy.getClass mustEqual(expectedStrategy)
     val results = strategy.execute(query, sft, null, featureEncoding, ds, ExplainNull)
-    queryExecutor.adaptIterator(results, query).map(_.getAttribute("name").toString).toSet.toList
+    queryPlanner.adaptIterator(results, query).map(_.getAttribute("name").toString).toSet.toList
   }
 
   "AttributeIndexStrategy" should {

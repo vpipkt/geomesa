@@ -43,6 +43,7 @@ import org.locationtech.geomesa.core.index
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.index.strategies.{StaticStrategyHints, StrategyHintsProvider}
 import org.locationtech.geomesa.core.security.AuthorizationsProvider
+import org.locationtech.geomesa.core.util.ExplainingConnectorCreator
 import org.locationtech.geomesa.data.TableSplitter
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
 import org.locationtech.geomesa.feature.{FeatureEncoding, SimpleFeatureEncoder}
@@ -1001,6 +1002,16 @@ class AccumuloDataStore(val connector: Connector,
   private def getFeatureName(featureType: SimpleFeatureType) = featureType.getName.getLocalPart
 
   override def strategyHints(sft: SimpleFeatureType) = new StaticStrategyHints()
+
+  def explainQuery(featureName: String, query: Query, o: ExplainerOutputType = ExplainPrintln) = {
+    validateMetadata(featureName)
+    val sft = getSchema(featureName)
+    val indexSchemaFmt = getIndexSchemaFmt(featureName)
+    val timeIndexSchemaFmt = getTimeIndexSchemaFmt(featureName)
+    val featureEncoding = getFeatureEncoding(sft)
+    setQueryTransforms(query, sft)
+    new AccumuloQueryExplainer(this, query, sft, indexSchemaFmt, timeIndexSchemaFmt, featureEncoding).explainQuery(o)
+  }
 }
 
 object AccumuloDataStore {
