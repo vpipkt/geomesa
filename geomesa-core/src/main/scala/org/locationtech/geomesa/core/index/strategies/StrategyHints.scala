@@ -147,6 +147,7 @@ object StaticStrategyHints extends Logging {
   import org.locationtech.geomesa.core.index.strategies.StaticStrategyHints.Keys._
   import scala.collection.JavaConversions._
 
+  // TODO load from classpath
   private val file = "strategy-hints.properties"
 
   object Keys {

@@ -618,8 +618,7 @@ class AccumuloDataStoreTest extends Specification {
     "allow users to call explainQuery" in {
       val sftName = "explainQueryTest"
       createSchema(sftName)
-      val query = new Query(sftName, Filter.INCLUDE)
-      val fr = ds.getFeatureReader(sftName)
+      val fr = ds.getFeatureReader(sftName, new Query(sftName, Filter.INCLUDE))
       fr must not beNull;
       val explain = {
         val out = new ExplainString

@@ -41,7 +41,7 @@ object QueryStrategyDecider {
     val strategy = RecordIdxStrategy.getStrategy(filter, sft)
         .orElse(AttributeIndexStrategy.getStrategy(filter, sft))
         // TODO re-enable this
-        // .orElse(if (version < 3) None else TimeIndexStrategy.getStrategy(filter, sft))
+        .orElse(if (version < 3) None else TimeIndexStrategy.getStrategy(filter, sft))
         .map(_.strategy)
 
     strategy.getOrElse {
@@ -77,8 +77,8 @@ object QueryStrategyDecider {
       Seq.empty
     } else {
       // TODO re-enable this
-      // filters.flatMap(TimeIndexStrategy.getStrategy(_, sft, hints))
-      Seq.empty
+      //      Seq.empty
+      filters.flatMap(TimeIndexStrategy.getStrategy(_, sft, hints))
     }
 
     val strategies = recordStrategies ++ spatialStrategies ++ attributeStrategies ++ temporalStrategies

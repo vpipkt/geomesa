@@ -38,6 +38,9 @@ class AccumuloFeatureReader(dataStore: AccumuloDataStore,
   private val hints = dataStore.strategyHints(sft)
   private val executor = new QueryExecutor(sft, featureEncoding, stSchema, timeSchema, dataStore, hints)
 
+  // TODO figure out this lazy val/explain problem
+  private val iter = profile(executor.query(query), "planning")
+
   def explainQuery(o: ExplainerOutputType = ExplainPrintln) = {
     profile({
       val cc = new ExplainingConnectorCreator(o)
@@ -46,8 +49,6 @@ class AccumuloFeatureReader(dataStore: AccumuloDataStore,
     }, "explain")
     o(s"Query Planning took ${timings.time("explain")} milliseconds.")
   }
-
-  private lazy val iter = profile(executor.query(query), "planning")
 
   override def getFeatureType = sft
 
