@@ -172,6 +172,7 @@ object Strategy {
   val iteratorPriority_AttributeIndexIterator          = 200
   val iteratorPriority_AttributeUniqueIterator         = 300
   val iteratorPriority_ColFRegex                       = 100
+  val iteratorPriority_RowSkippingIterator             = 150
   val iteratorPriority_SpatioTemporalIterator          = 200
   val iteratorPriority_SimpleFeatureFilteringIterator  = 300
   val iteratorPriority_AnalysisIterator                = 400

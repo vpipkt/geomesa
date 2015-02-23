@@ -20,6 +20,7 @@ import java.util.{Date, Properties}
 
 import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.Geometry
+import org.locationtech.geomesa.core.util.GeoMesaCoreConfig
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.stats.Cardinality
 import org.opengis.feature.`type`.AttributeDescriptor
@@ -143,33 +144,11 @@ class StaticStrategyHints extends StrategyHints {
 }
 
 object StaticStrategyHints extends Logging {
+  import GeoMesaCoreConfig.QueryStrategyConfig
 
-  import org.locationtech.geomesa.core.index.strategies.StaticStrategyHints.Keys._
-  import scala.collection.JavaConversions._
-
-  // TODO load from classpath
-  private val file = "strategy-hints.properties"
-
-  object Keys {
-    val TEMPORAL_COST_PER_SECOND = "TEMPORAL_COST_PER_SECOND"
-    val SPATIAL_COST_PER_DEGREE = "SPATIAL_COST_PER_DEGREE"
-    val ATTRIBUTE_COST_UNKNOWN = "ATTRIBUTE_COST_UNKNOWN"
-  }
-
-  val knobs = Option(getClass.getResourceAsStream(file)).map { r =>
-    val props = new Properties()
-    props.load(r)
-    props.toMap
-  }.getOrElse {
-    logger.warn(s"Unable to load $file - using defaults")
-    Map(TEMPORAL_COST_PER_SECOND -> "1",
-        SPATIAL_COST_PER_DEGREE  -> "86400",
-        ATTRIBUTE_COST_UNKNOWN   -> "8640000")
-  }
-
-  val temporalCostPerSecond = knobs(TEMPORAL_COST_PER_SECOND).toLong
-  val spatialCostPerDegree = knobs(SPATIAL_COST_PER_DEGREE).toLong
-  val attributeCostUnknown = knobs(ATTRIBUTE_COST_UNKNOWN).toLong
+  val temporalCostPerSecond = QueryStrategyConfig.temporalCostPerSecond
+  val spatialCostPerDegree  = QueryStrategyConfig.spatialCostPerDegree
+  val attributeCostUnknown  = QueryStrategyConfig.attributeDefault
 }
 
 /**

@@ -74,7 +74,7 @@ abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with Ind
                      indexSchema: String,
                      featureEncoding: FeatureEncoding,
                      output: ExplainerOutputType): QueryPlan = {
-    val keyPlanner      = IndexSchema.buildKeyPlanner(indexSchema)
+    val keyPlanner      = adaptKeyPlanner(IndexSchema.buildKeyPlanner(indexSchema))
     val cfPlanner       = IndexSchema.buildColumnFamilyPlanner(indexSchema)
 
     output(s"Scanning index table for feature type ${featureType.getTypeName}")
@@ -112,7 +112,7 @@ abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with Ind
 
     val stiiIterCfg = getSTIIIterCfg(iteratorConfig, query, featureType, stFilter, ecql, featureEncoding)
     val densityIterCfg = getDensityIterCfg(query, geometryToCover, indexSchema, featureEncoding, featureType)
-    val otherCfgs = getOtherIteratorConfigs(query, featureType, featureEncoding, indexSchema, output)
+    val otherCfgs = getOtherIteratorConfigs(filter, keyPlanner, indexSchema, output)
     val iters = List(Some(stiiIterCfg), densityIterCfg).flatten ++ otherCfgs
 
     // set up row ranges
@@ -124,11 +124,12 @@ abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with Ind
   /**
    * Should be implemented by subclasses as needed
    */
-  def getOtherIteratorConfigs(query: Query,
-                              sft: SimpleFeatureType,
-                              encoding: FeatureEncoding,
+  def getOtherIteratorConfigs(filter: KeyPlanningFilter,
+                              keyPlanner: KeyPlanner,
                               schema: String,
                               output: ExplainerOutputType): List[IteratorSetting] = List.empty
+
+  def adaptKeyPlanner(keyPlanner: KeyPlanner): KeyPlanner = keyPlanner
 
   /**
    * Gets an iterator setting for the main STII iterator

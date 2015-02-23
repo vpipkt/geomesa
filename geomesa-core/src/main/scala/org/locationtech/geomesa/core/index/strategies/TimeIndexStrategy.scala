@@ -18,6 +18,7 @@ package org.locationtech.geomesa.core.index.strategies
 
 import java.util.Date
 
+import com.vividsolutions.jts.geom.Geometry
 import org.apache.accumulo.core.client.IteratorSetting
 import org.apache.accumulo.core.data.{Range => AccRange}
 import org.apache.hadoop.io.Text
@@ -26,7 +27,8 @@ import org.geotools.temporal.`object`.DefaultPeriod
 import org.locationtech.geomesa.core
 import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
 import org.locationtech.geomesa.core.index._
-import org.locationtech.geomesa.core.iterators.IteratorChoice
+import org.locationtech.geomesa.core.index.strategies.Strategy._
+import org.locationtech.geomesa.core.iterators.{RowSkippingIterator, IndexIterator, IteratorChoice}
 import org.locationtech.geomesa.feature.FeatureEncoding._
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter._
@@ -45,34 +47,40 @@ class TimeIndexStrategy extends BaseSpatioTemporalStrategy {
     tryScanner(query, featureType, indexSchema, featureEncoding, bs, output)
   }
 
-  override def getRanges(filter: KeyPlanningFilter,
-                         iter: IteratorChoice,
-                         output: ExplainerOutputType,
-                         keyPlanner: KeyPlanner,
-                         cfPlanner: ColumnFamilyPlanner): (Seq[AccRange], Seq[Text]) = {
-    // if there are any parts of the row key after the date, we tweak them here to just cut off the
-    // start/end of the range - other rows will be skipped by iterators
-    val timeKeyPlanner = keyPlanner match {
-      case CompositePlanner(planners, sep) =>
-        val i = planners.indexWhere(_.isInstanceOf[DateKeyPlanner])
-        if (i == -1) {
-          keyPlanner
-        } else {
-          val partitioned = planners.splitAt(i)
-          PartialRowPlanner(partitioned._1, partitioned._2, sep)
-        }
-      case _ => keyPlanner
-    }
-    super.getRanges(filter, iter, output, timeKeyPlanner, cfPlanner)
+  // if there are any parts of the row key after the date, we tweak them here to just cut off the
+  // start/end of the range - other rows will be skipped by iterators
+  override def adaptKeyPlanner(keyPlanner: KeyPlanner) = keyPlanner match {
+    case CompositePlanner(planners, sep) =>
+      val i = planners.indexWhere(_.isInstanceOf[DateKeyPlanner])
+      if (i == -1) {
+        keyPlanner
+      } else {
+        val partitioned = planners.splitAt(i + 1)
+        PartialRowPlanner(partitioned._1, partitioned._2, sep)
+      }
+    case _ => keyPlanner
   }
 
-  override def getOtherIteratorConfigs(query: Query,
-                                       sft: SimpleFeatureType,
-                                       encoding: FeatureEncoding,
+  override def getOtherIteratorConfigs(filter: KeyPlanningFilter,
+                                       keyPlanner: KeyPlanner,
                                        schema: String,
                                        output: ExplainerOutputType): List[IteratorSetting] = {
-
-    List.empty
+    Some(keyPlanner).collect {
+      case PartialRowPlanner(primary, secondary, sep) if (secondary.size == 1) =>
+        secondary.head.getKeyPlan(filter, false, ExplainNull)
+      case PartialRowPlanner(primary, secondary, sep) if (secondary.size > 1) =>
+        CompositePlanner(secondary, sep).getKeyPlan(filter, false, ExplainNull)
+    }.collect {
+      case KeyList(keys) => keys
+      case KeyListTiered(keys, _) => keys
+      case KeyRange(start, end) if start == end => Seq(start)
+      case KeyRanges(ranges) if ranges.forall(r => r.start == r.end) => ranges.map(_.start)
+    }.map { suffixes =>
+      val cfg = new IteratorSetting(iteratorPriority_RowSkippingIterator, classOf[RowSkippingIterator])
+      RowSkippingIterator.configure(cfg, suffixes)
+      output(s"Row Suffixes (${suffixes.size}): ${suffixes.take(20).mkString(",")}")
+      List(cfg)
+    }.getOrElse(List.empty)
   }
 }
 

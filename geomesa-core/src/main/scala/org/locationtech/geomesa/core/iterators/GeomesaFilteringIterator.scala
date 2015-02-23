@@ -82,6 +82,6 @@ abstract class GeomesaFilteringIterator
    */
   def setTopConditionally(): Unit
 
-  override def deepCopy(env: IteratorEnvironment) =
+  override def deepCopy(env: IteratorEnvironment): SortedKeyValueIterator[Key, Value] =
     throw new UnsupportedOperationException("GeoMesa iterators do not support deepCopy")
 }
