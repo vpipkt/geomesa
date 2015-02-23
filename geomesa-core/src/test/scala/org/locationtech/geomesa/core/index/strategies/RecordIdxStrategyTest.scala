@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package org.locationtech.geomesa.core.index
+package org.locationtech.geomesa.core.index.strategies
 
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.filter._
-import org.locationtech.geomesa.core.index.strategies.RecordIdxStrategy
 import org.opengis.filter.Id
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner

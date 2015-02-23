@@ -21,7 +21,6 @@ import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.stats._
 import org.locationtech.geomesa.core.util.ExplainingConnectorCreator
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
-import org.locationtech.geomesa.feature.SimpleFeatureEncoder
 import org.locationtech.geomesa.utils.stats.{MethodProfiling, TimingsImpl}
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 

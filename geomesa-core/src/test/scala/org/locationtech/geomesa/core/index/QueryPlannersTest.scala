@@ -29,9 +29,9 @@ import org.specs2.runner.JUnitRunner
 class QueryPlannersTest extends Specification {
 
   "QueryPlanner" should {
-    val mm   = DatePlanner(DateTimeFormat.forPattern("MM"))
-    val ss   = DatePlanner(DateTimeFormat.forPattern("ss"))
-    val mmdd = DatePlanner(DateTimeFormat.forPattern("MM-dd"))
+    val mm   = DateKeyPlanner(DateTimeFormat.forPattern("MM"))
+    val ss   = DateKeyPlanner(DateTimeFormat.forPattern("ss"))
+    val mmdd = DateKeyPlanner(DateTimeFormat.forPattern("MM-dd"))
 
     "return full ranges for unspecified dates " in {
       val ghPoly =  GeoHash("c23j").bbox.geom match {

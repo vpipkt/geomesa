@@ -270,8 +270,8 @@ object IndexSchema extends RegexParsers with Logging {
     case d => RandomPartitionPlanner(d.toInt)
   }
 
-  def datePlanner: Parser[DatePlanner] = datePattern ^^ {
-    case fmt => DatePlanner(DateTimeFormat.forPattern(fmt))
+  def datePlanner: Parser[DateKeyPlanner] = datePattern ^^ {
+    case fmt => DateKeyPlanner(DateTimeFormat.forPattern(fmt).withZoneUTC())
   }
 
   def geohashKeyPlanner: Parser[GeoHashKeyPlanner] = geohashPattern ^^ {
@@ -288,17 +288,18 @@ object IndexSchema extends RegexParsers with Logging {
     case fail: NoSuccess => throw new Exception(fail.msg)
   }
 
+  def columnFamilyPlanner: Parser[ColumnFamilyPlanner] =
+    (keypart ~ PART_DELIMITER) ~> (sep ~ rep(geohashEncoder | dateEncoder)) <~ (PART_DELIMITER ~ keypart) ^^ {
+      case sep ~ xs =>
+        val planners = xs.collect {
+          case GeoHashTextFormatter(o, n) => GeoHashColumnFamilyPlanner(o, n)
+          case DateTextFormatter(f)       => DateColumnFamilyPlanner(f)
+        }
+        // TODO add composite cf planner and reduce list
+        planners.head
+    }
 
-  def geohashColumnFamilyPlanner: Parser[GeoHashColumnFamilyPlanner] = (keypart ~ PART_DELIMITER) ~> (sep ~ rep(randEncoder | geohashEncoder | dateEncoder | constantStringEncoder)) <~ (PART_DELIMITER ~ keypart) ^^ {
-    case sep ~ xs => xs.find(tf => tf match {
-      case gh: GeoHashTextFormatter => true
-      case _ => false
-    }).map(ghtf => ghtf match {
-      case GeoHashTextFormatter(o, n) => GeoHashColumnFamilyPlanner(o,n)
-    }).get
-  }
-
-  def buildColumnFamilyPlanner(s: String): ColumnFamilyPlanner = parse(geohashColumnFamilyPlanner, s) match {
+  def buildColumnFamilyPlanner(s: String): ColumnFamilyPlanner = parse(columnFamilyPlanner, s) match {
     case Success(result, _) => result
     case fail: NoSuccess => throw new Exception(fail.msg)
   }

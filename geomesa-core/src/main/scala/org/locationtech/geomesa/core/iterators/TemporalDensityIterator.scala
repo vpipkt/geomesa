@@ -29,7 +29,7 @@ import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIt
 import org.apache.commons.codec.binary.Base64
 import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.geometry.jts.JTSFactoryFinder
-import org.joda.time.{DateTime, Interval}
+import org.joda.time.{DateTimeZone, DateTime, Interval}
 import org.locationtech.geomesa.core._
 import org.locationtech.geomesa.core.index.{IndexEntryDecoder, _}
 import org.locationtech.geomesa.feature._
@@ -210,7 +210,7 @@ object TemporalDensityIterator extends Logging {
     val is = new DataInputStream(new ByteArrayInputStream(bytes))
     val table = new collection.mutable.HashMap[DateTime, Long]()
     while(is.available() > 0) {
-      val dateIdx = new DateTime(is.readLong())
+      val dateIdx = new DateTime(is.readLong(), DateTimeZone.UTC)
       val weight = is.readLong()
       table.put(dateIdx, weight)
     }

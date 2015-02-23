@@ -80,8 +80,12 @@ class RecordIdxStrategy extends Strategy with Logging {
               output: ExplainerOutputType): SelfClosingIterator[Entry[Key, Value]] = {
     val recordScanner = acc.createRecordScanner(featureType)
     val qp = buildIDQueryPlan(query, featureType, featureEncoding, output)
-    configureBatchScanner(recordScanner, qp)
-    SelfClosingBatchScanner(recordScanner)
+    if (qp.ranges.isEmpty) {
+      SelfClosingIterator(Iterator.empty)
+    } else {
+      configureBatchScanner(recordScanner, qp)
+      SelfClosingBatchScanner(recordScanner)
+    }
   }
 
   def buildIDQueryPlan(query: Query,
@@ -115,9 +119,8 @@ class RecordIdxStrategy extends Strategy with Logging {
       case Some(filterSet) if filterSet.nonEmpty => filterSet
       case _ =>
         // TODO: for below instead pass empty query plan (https://geomesa.atlassian.net/browse/GEOMESA-347)
-        // need to log a warning message as the exception will be caught by hasNext in FeatureReaderIterator
-        logger.error(s"Filter ${query.getFilter} results in no valid range for record table")
-        throw new RuntimeException(s"Filter ${query.getFilter} results in no valid range for record table")
+        logger.warn(s"Filter ${query.getFilter} results in no valid range for record table")
+        Seq.empty
     }
 
     output(s"Extracted ID filter: ${combinedIDFilter.get}")

@@ -86,7 +86,7 @@ class QueryPlanner(sft: SimpleFeatureType,
     val isDensity = query.getHints.containsKey(BBOX_KEY)
 
     def flatten(queries: Seq[Query]): KVIter =
-      queries.toIterator.ciFlatMap(getIterator( _, isDensity, output))
+      queries.toIterator.ciFlatMap(getIterator(_, isDensity, output))
 
     // in some cases, where duplicates may appear in overlapping queries or the data itself, remove them
     def deduplicate(queries: Seq[Query]): KVIter = {
@@ -123,8 +123,8 @@ class QueryPlanner(sft: SimpleFeatureType,
     output(s"Transforms: ${query.getHints.get(TRANSFORMS)}")
 
     val indexSchema = strategy match {
-      case s: STIdxStrategy     => stSchema
-      case s: TimeIndexStrategy => timeSchema
+      case _: STIdxStrategy     => stSchema
+      case _: TimeIndexStrategy => timeSchema
       case _: RecordIdxStrategy | _: AttributeIdxStrategy => null // not used
     }
 
@@ -191,18 +191,21 @@ class QueryPlanner(sft: SimpleFeatureType,
                                     returnSFT: SimpleFeatureType,
                                     decoder: SimpleFeatureDecoder): SFIter = {
     val timeSeriesStrings = accumuloIterator.map { kv =>
-      decoder.decode(kv.getValue.get).getAttribute(ENCODED_TIME_SERIES).toString
+     val encoded = decoder.decode(kv.getValue.get).getAttribute(ENCODED_TIME_SERIES).toString
+      decodeTimeSeries(encoded)
     }
-    val summedTimeSeries = timeSeriesStrings.map(decodeTimeSeries).reduce(combineTimeSeries)
+    val summedTimeSeries = timeSeriesStrings.reduceOption(combineTimeSeries)
 
-    val zeroPoint = new GeometryFactory().createPoint(new Coordinate(0,0))
+    val feature = summedTimeSeries.map { sum =>
+      val zeroPoint = new GeometryFactory().createPoint(new Coordinate(0,0))
 
-    val featureBuilder = ScalaSimpleFeatureFactory.featureBuilder(returnSFT)
-    featureBuilder.add(TemporalDensityIterator.encodeTimeSeries(summedTimeSeries))
-    featureBuilder.add(zeroPoint) // Filler value as Feature requires a geometry
-    val result = featureBuilder.buildFeature(null)
+      val featureBuilder = ScalaSimpleFeatureFactory.featureBuilder(returnSFT)
+      featureBuilder.add(TemporalDensityIterator.encodeTimeSeries(sum))
+      featureBuilder.add(zeroPoint) // Filler value as Feature requires a geometry
+      featureBuilder.buildFeature(null)
+    }
 
-    Seq(result).iterator
+    feature.iterator
   }
 
   def adaptDensityIterator(accumuloIterator: KVIter, decoder: SimpleFeatureDecoder): SFIter =
