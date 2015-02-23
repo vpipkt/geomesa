@@ -436,7 +436,6 @@ class AccumuloDataStore(val connector: Connector,
   //  TODO: This function should check if the constant is equal to the featureType.getTypeName
   def checkSchemaRequirements(featureType: SimpleFeatureType, schema: String) {
     if(core.index.getTableSharing(featureType)) {
-
       val (rowf, _,_) = IndexSchema.parse(IndexSchema.formatter, schema).get
       rowf.lf match {
         case Seq(pf: PartitionTextFormatter, i: IndexOrDataTextFormatter, const: ConstantTextFormatter, r@_*) =>

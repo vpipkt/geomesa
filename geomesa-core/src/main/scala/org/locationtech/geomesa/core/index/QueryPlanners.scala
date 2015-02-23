@@ -347,7 +347,7 @@ case class RandomPartitionPlanner(shards: Int) extends KeyPlanner {
   val numBits: Int = numPartitions.toString.length
   def getKeyPlan(filter: KeyPlanningFilter, indexOnly: Boolean, output: ExplainerOutputType) = {
     val keys = (0 to numPartitions).map(_.toString.reverse.padTo(numBits,"0").reverse.mkString)
-    output(s"Random Partition Planner: $keys")
+    output(s"Random Partition Planner: ${keys.mkString(", ")}")
     KeyListTiered(keys)
   }
 }
@@ -450,6 +450,26 @@ case class DateKeyPlanner(formatter: DateTimeFormatter) extends KeyPlanner with 
 case class CompositePlanner(seq: Seq[KeyPlanner], sep: String) extends KeyPlanner {
   def getKeyPlan(filter: KeyPlanningFilter, indexOnly: Boolean, output: ExplainerOutputType): KeyPlan = {
     val joined = seq.map(_.getKeyPlan(filter, indexOnly, output)).reduce(_.join(_, sep))
+    joined match {
+      case kt:KeyTiered    => KeyRanges(kt.toRanges(sep))
+      case KeyRegex(regex) => joined.join(KeyRegex(".*"), "")
+      case _               => joined
+    }
+  }
+}
+
+case class PartialRowPlanner(primary: Seq[KeyPlanner], secondary: Seq[KeyPlanner], sep: String) extends KeyPlanner {
+  override def getKeyPlan(filter: KeyPlanningFilter, indexOnly: Boolean, output: ExplainerOutputType) = {
+    val primaryPlans = primary.map(_.getKeyPlan(filter, indexOnly, output))
+    // convert secondary plans to non-tiered version to just trim off the ends of the range
+    val secondaryPlans = secondary.map { keyPlanner =>
+      keyPlanner.getKeyPlan(filter, indexOnly, output) match {
+        case KeyListTiered(keys, parent)        => KeyRange(keys.min, keys.max)
+        case KeyRangeTiered(start, end, parent) => KeyRange(start, end)
+        case kp                                 => kp
+      }
+    }
+    val joined = (primaryPlans ++ secondaryPlans).reduce(_.join(_, sep))
     joined match {
       case kt:KeyTiered    => KeyRanges(kt.toRanges(sep))
       case KeyRegex(regex) => joined.join(KeyRegex(".*"), "")

@@ -19,11 +19,14 @@ package org.locationtech.geomesa.core.index.strategies
 import java.util.Date
 
 import org.apache.accumulo.core.client.IteratorSetting
+import org.apache.accumulo.core.data.{Range => AccRange}
+import org.apache.hadoop.io.Text
 import org.geotools.data.Query
 import org.geotools.temporal.`object`.DefaultPeriod
 import org.locationtech.geomesa.core
 import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
 import org.locationtech.geomesa.core.index._
+import org.locationtech.geomesa.core.iterators.IteratorChoice
 import org.locationtech.geomesa.feature.FeatureEncoding._
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter._
@@ -40,6 +43,27 @@ class TimeIndexStrategy extends BaseSpatioTemporalStrategy {
                        output: ExplainerOutputType) = {
     val bs = acc.createTimeIndexScanner(featureType)
     tryScanner(query, featureType, indexSchema, featureEncoding, bs, output)
+  }
+
+  override def getRanges(filter: KeyPlanningFilter,
+                         iter: IteratorChoice,
+                         output: ExplainerOutputType,
+                         keyPlanner: KeyPlanner,
+                         cfPlanner: ColumnFamilyPlanner): (Seq[AccRange], Seq[Text]) = {
+    // if there are any parts of the row key after the date, we tweak them here to just cut off the
+    // start/end of the range - other rows will be skipped by iterators
+    val timeKeyPlanner = keyPlanner match {
+      case CompositePlanner(planners, sep) =>
+        val i = planners.indexWhere(_.isInstanceOf[DateKeyPlanner])
+        if (i == -1) {
+          keyPlanner
+        } else {
+          val partitioned = planners.splitAt(i)
+          PartialRowPlanner(partitioned._1, partitioned._2, sep)
+        }
+      case _ => keyPlanner
+    }
+    super.getRanges(filter, iter, output, timeKeyPlanner, cfPlanner)
   }
 
   override def getOtherIteratorConfigs(query: Query,

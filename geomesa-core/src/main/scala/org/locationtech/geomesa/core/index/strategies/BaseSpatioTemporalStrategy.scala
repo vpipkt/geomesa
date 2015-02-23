@@ -77,7 +77,7 @@ abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with Ind
     val keyPlanner      = IndexSchema.buildKeyPlanner(indexSchema)
     val cfPlanner       = IndexSchema.buildColumnFamilyPlanner(indexSchema)
 
-    output(s"Scanning ST index table for feature type ${featureType.getTypeName}")
+    output(s"Scanning index table for feature type ${featureType.getTypeName}")
     output(s"Filter: ${query.getFilter}")
 
     val dtgField = getDtgFieldName(featureType)
@@ -208,8 +208,6 @@ abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with Ind
                 output: ExplainerOutputType,
                 keyPlanner: KeyPlanner,
                 cfPlanner: ColumnFamilyPlanner): (Seq[AccRange], Seq[Text]) = {
-    output(s"Planning query")
-
     val indexOnly = iter match {
       case IndexOnlyIterator      => true
       case SpatioTemporalIterator => false
@@ -219,12 +217,12 @@ abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with Ind
     val columnFamilies = cfPlanner.getColumnFamiliesToFetch(filter)
 
     // always try to use range(s) to remove easy false-positives
-    val accRanges: Seq[org.apache.accumulo.core.data.Range] = keyPlan match {
+    val accRanges: Seq[AccRange] = keyPlan match {
       case KeyRanges(ranges) => ranges.map(r => new AccRange(r.start, r.end))
       case _ => Seq(new AccRange())
     }
 
-    output(s"Total ranges: ${accRanges.size} - ${accRanges.take(5)}")
+    output(s"Total ranges: ${accRanges.size} - ${accRanges.take(5).map(ExplainerOutputType.toString).mkString(",")}")
 
     // if you have a list of distinct column-family entries, fetch them
     val cf = columnFamilies match {
