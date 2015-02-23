@@ -16,32 +16,24 @@
 
 package org.locationtech.geomesa.core.index.strategies
 
-import java.text.SimpleDateFormat
-import java.util.{Date, TimeZone}
+import java.util.Date
 
 import com.vividsolutions.jts.geom.Geometry
-import org.apache.accumulo.core.client.mock.MockInstance
-import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.accumulo.core.data.{Range => AccRange}
 import org.apache.accumulo.core.security.Authorizations
 import org.geotools.data._
-import org.geotools.factory.Hints
-import org.geotools.feature.DefaultFeatureCollection
-import org.geotools.feature.simple.SimpleFeatureBuilder
-import org.geotools.filter.text.cql2.CQLException
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
-import org.locationtech.geomesa.core.data.tables.AttributeTable
-import org.locationtech.geomesa.core.data.{AccumuloDataStore, INTERNAL_GEOMESA_VERSION}
-import org.locationtech.geomesa.core.{TestWithDataStore, index}
+import org.locationtech.geomesa.core.TestWithDataStore
+import org.locationtech.geomesa.core.data.AccumuloDataStore
 import org.locationtech.geomesa.core.index._
-import org.locationtech.geomesa.feature.{ScalaSimpleFeatureFactory, AvroSimpleFeatureFactory}
-import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
+import org.locationtech.geomesa.feature.ScalaSimpleFeatureFactory
 import org.locationtech.geomesa.utils.text.WKTUtils
 import org.opengis.feature.`type`.AttributeDescriptor
-import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
+import org.opengis.feature.simple.SimpleFeature
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
+
 import scala.collection.JavaConversions._
 
 @RunWith(classOf[JUnitRunner])
@@ -84,8 +76,8 @@ class TimeIndexStrategyTest extends Specification with TestWithDataStore {
   def execute(filter: String): List[SimpleFeature] = {
     val query = new Query(sftName, ECQL.toFilter(filter))
     AccumuloDataStore.setQueryTransforms(query, sft)
-    queryPlanner.planQuery(query, ExplainPrintln)
-    println("\n\n")
+    // queryPlanner.planQuery(query, ExplainPrintln)
+    // println("\n\n")
     queryPlanner.query(query).toList
   }
 
@@ -96,11 +88,6 @@ class TimeIndexStrategyTest extends Specification with TestWithDataStore {
       scanner.foreach(println)
       println
       success
-// 0~1~TimeIndexStrategyTest~00000101~.. 0~1~TimeIndexStrategyTest~20140102~..%00;
-// 0~1~TimeIndexStrategyTest~00000101~u. 0~1~TimeIndexStrategyTest~20140102~u.%00;
-// 0~1~TimeIndexStrategyTest~00000101~uc 0~1~TimeIndexStrategyTest~20140102~uc%00;
-// 0~1~TimeIndexStrategyTest~00000101~v. 0~1~TimeIndexStrategyTest~20140102~v.%00;
-// 0~1~TimeIndexStrategyTest~00000101~v1 0~1~TimeIndexStrategyTest~20140102~v1%00;
     }
     "query on greater than" in {
       val features = execute("dtg > '2014-01-02T00:00:00.000Z'")
@@ -149,16 +136,9 @@ class TimeIndexStrategyTest extends Specification with TestWithDataStore {
     }
     "query on mixed date and geom" in {
       val features = execute("dtg < '2014-01-02T00:00:00.000Z' AND bbox(geom, 44, 51.5, 46, 53.5)")
-      features.foreach(f => println(f.getID))
       features must have size(2)
       features.map(_.getID) must contain(exactly("fid-2", "fid-3"))
     }
-    "query on attributes on the right side" in {
-      // TODO support attributes on the right side
-      val features = execute("'2014-01-01T12:00:00.000Z' <= dtg")
-      features must have size(8)
-      features.map(_.getID) must contain(exactly("fid-2", "fid-3", "fid-4", "fid-5", "fid-6", "fid-7", "fid-8", "fid-9"))
-    }.pendingUntilFixed("TODO")
     "query on tequals" in {
       val features = execute("dtg TEQUALS 2014-01-01T12:00:00.000Z")
       features must have size(1)
@@ -166,3 +146,5 @@ class TimeIndexStrategyTest extends Specification with TestWithDataStore {
     }.pendingUntilFixed("tequals doesn't work with ECQL.toFilter")
   }
 }
+//Total ranges: 1 - [0~1~TimeIndexStrategyTest~20140101~%00; : [], 0~1~TimeIndexStrategyTest~99991231~~%00; : [])
+//Total ranges: 1 - [0~1~TimeIndexStrategyTest~20140101~%00; : [], 0~1~TimeIndexStrategyTest~99991231~~%00; : [])
