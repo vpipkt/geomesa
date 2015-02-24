@@ -24,9 +24,10 @@ import org.opengis.feature.simple.SimpleFeatureType
 
 
 case class AttributeDetails(name: String, index: Int, clazz: String) {
-  def getter: String = s"def $name(): $clazz = sf.getAttribute($index).asInstanceOf[$clazz]"
-  def optionGetter: String = s"def ${name}Opt(): Option[$clazz] = Option($name())"
-  def setter: String = s"def set${name.capitalize}(x: $clazz): Unit = sf.setAttribute($index, x)"
+  val safeName = name.replaceAll("\\W", "_")
+  def getter: String = s"def $safeName(): $clazz = sf.getAttribute($index).asInstanceOf[$clazz]"
+  def optionGetter: String = s"def ${safeName}Opt(): Option[$clazz] = Option($safeName())"
+  def setter: String = s"def set${safeName.capitalize}(x: $clazz): Unit = sf.setAttribute($index, x)"
 }
 
 object AttributeDetails {
