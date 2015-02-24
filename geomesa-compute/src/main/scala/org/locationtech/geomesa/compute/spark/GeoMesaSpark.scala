@@ -65,14 +65,14 @@ object GeoMesaSpark {
     val planner = new STIdxStrategy
     val qp = planner.buildSTIdxQueryPlan(query, indexSchema.planner, sft, org.locationtech.geomesa.core.index.ExplainPrintln)
 
-    ConfiguratorBase.setConnectorInfo(classOf[AccumuloInputFormat], conf, ds.connector.whoami(), ds.authToken)
-    ConfiguratorBase.setZooKeeperInstance(classOf[AccumuloInputFormat], conf, ds.connector.getInstance().getInstanceName, ds.connector.getInstance().getZooKeepers)
+    ConfiguratorBase.setConnectorInfo(classOf[GeoTrellisAccumuloInputFormat], conf, ds.connector.whoami(), ds.authToken)
+    ConfiguratorBase.setZooKeeperInstance(classOf[GeoTrellisAccumuloInputFormat], conf, ds.connector.getInstance().getInstanceName, ds.connector.getInstance().getZooKeepers)
 
-    InputConfigurator.setInputTableName(classOf[AccumuloInputFormat], conf, ds.getSpatioTemporalIdxTableName(sft))
-    InputConfigurator.setRanges(classOf[AccumuloInputFormat], conf, qp.ranges)
-    qp.iterators.foreach { is => InputConfigurator.addIterator(classOf[AccumuloInputFormat], conf, is) }
+    InputConfigurator.setInputTableName(classOf[GeoTrellisAccumuloInputFormat], conf, ds.getSpatioTemporalIdxTableName(sft))
+    InputConfigurator.setRanges(classOf[GeoTrellisAccumuloInputFormat], conf, qp.ranges)
+    qp.iterators.foreach { is => InputConfigurator.addIterator(classOf[GeoTrellisAccumuloInputFormat], conf, is) }
 
-    val rdd = sc.newAPIHadoopRDD(conf, classOf[AccumuloInputFormat], classOf[Key], classOf[Value])
+    val rdd = sc.newAPIHadoopRDD(conf, classOf[GeoTrellisAccumuloInputFormat], classOf[Key], classOf[Value])
 
     rdd.mapPartitions { iter =>
       val sft = SimpleFeatureTypes.createType(typeName, spec)
