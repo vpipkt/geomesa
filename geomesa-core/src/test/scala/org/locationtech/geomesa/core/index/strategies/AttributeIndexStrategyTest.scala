@@ -31,9 +31,9 @@ import org.geotools.feature.simple.SimpleFeatureBuilder
 import org.geotools.filter.text.cql2.CQLException
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
+import org.locationtech.geomesa.core.data.AccumuloDataStore
 import org.locationtech.geomesa.core.data.tables.AttributeTable
-import org.locationtech.geomesa.core.data.{AccumuloDataStore, INTERNAL_GEOMESA_VERSION}
-import org.locationtech.geomesa.core.index
+import org.locationtech.geomesa.core.{INTERNAL_GEOMESA_VERSION, index}
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes

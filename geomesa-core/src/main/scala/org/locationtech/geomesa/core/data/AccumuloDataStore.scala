@@ -39,11 +39,10 @@ import org.joda.time.Interval
 import org.locationtech.geomesa.core
 import org.locationtech.geomesa.core.data.AccumuloDataStore._
 import org.locationtech.geomesa.core.data.tables.{AttributeTable, RecordTable, SpatioTemporalTable}
-import org.locationtech.geomesa.core.index
+import org.locationtech.geomesa.core.{INTERNAL_GEOMESA_VERSION, index}
 import org.locationtech.geomesa.core.index._
 import org.locationtech.geomesa.core.index.strategies.{StaticStrategyHints, StrategyHintsProvider}
 import org.locationtech.geomesa.core.security.AuthorizationsProvider
-import org.locationtech.geomesa.core.util.ExplainingConnectorCreator
 import org.locationtech.geomesa.data.TableSplitter
 import org.locationtech.geomesa.feature.FeatureEncoding.FeatureEncoding
 import org.locationtech.geomesa.feature.{FeatureEncoding, SimpleFeatureEncoder}

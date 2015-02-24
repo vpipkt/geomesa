@@ -61,10 +61,14 @@ class RowSkippingIterator extends GeomesaFilteringIterator {
       nextSuffix.foreach { s =>
         val nextRow = new Text(row.substring(0, row.length - suffixLength) + s)
         val start = new Key(nextRow)
-        if (!currentRange.afterEndKey(start)) {
-          val range = currentRange.clip(new AccRange(start, true, null, false))
-          seek(range, currentColumnFamilies, currentRangeInclusive)
+        val toClip =  if (currentRange.afterEndKey(start)) {
+          // seek to the end of the range to exhaust the iterator
+          new AccRange(currentRange.getEndKey, true, null, false)
+        } else {
+          new AccRange(start, true, null, false)
         }
+        val range = currentRange.clip(toClip)
+        seek(range, currentColumnFamilies, currentRangeInclusive)
       }
     }
   }

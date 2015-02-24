@@ -26,6 +26,7 @@ import org.locationtech.geomesa.core.data.tables.SpatioTemporalTable
 import org.locationtech.geomesa.core.index.KeyUtils._
 import org.locationtech.geomesa.utils.CartesianProductIterable
 import org.locationtech.geomesa.utils.geohash.{GeoHash, GeohashUtils}
+import org.locationtech.geomesa.utils.text.WKTUtils
 
 case class QueryPlan(iterators: Seq[IteratorSetting], ranges: Seq[org.apache.accumulo.core.data.Range], cf: Seq[Text])
 
@@ -211,6 +212,8 @@ case class KeyListTiered(keys:Seq[String], parent:Option[KeyTiered]=None) extend
 }
 
 object KeyUtils {
+
+  val WHOLE_WORLD_GEOM = WKTUtils.read("POLYGON((-180 -90, -180 90, 180 90, 180 -90, -180 -90))")
   val MAX_KEYS_IN_LIST = 65536
   val MAX_KEYS_IN_REGEX = 1024
 
@@ -304,7 +307,7 @@ trait GeoHashPlanner extends Logging {
     case SpatialFilter(geom)                => polyToPlan(geom, offset, bits)
     case SpatialDateFilter(geom, _)         => polyToPlan(geom, offset, bits)
     case SpatialDateRangeFilter(geom, _, _) => polyToPlan(geom, offset, bits)
-    case DateRangeFilter(_, _)              => KeyAccept
+    case DateRangeFilter(_, _)              => polyToPlan(WHOLE_WORLD_GEOM, offset, bits)
     case AcceptEverythingFilter             => KeyAccept
     case _ => // degenerate outcome
       logger.warn(s"Unhandled key planning filter $filter")

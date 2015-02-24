@@ -29,8 +29,7 @@ import org.geotools.filter.text.ecql.ECQL
 import org.joda.time.{DateTime, DateTimeZone}
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.data._
-import org.locationtech.geomesa.core.index
-import org.locationtech.geomesa.core.index._
+import org.locationtech.geomesa.core.{INTERNAL_GEOMESA_VERSION, index}
 import org.locationtech.geomesa.core.index.strategies._
 import org.locationtech.geomesa.utils.geotools.Conversions._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes

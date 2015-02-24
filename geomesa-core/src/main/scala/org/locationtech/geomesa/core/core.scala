@@ -18,6 +18,12 @@ package org.locationtech.geomesa
 
 package object core {
 
+  // 0 == old single table style
+  // 1 == multi-table style
+  // 2 == sorted keys in the STIDX table
+  // 3 == time first index
+  val INTERNAL_GEOMESA_VERSION = 3
+
   // This first string is used as a SimpleFeature attribute name.
   //  Since we would like to be able to use ECQL filters, we are restricted to letters, numbers, and _'s.
   val DEFAULT_GEOMETRY_PROPERTY_NAME = "SF_PROPERTY_GEOMETRY"

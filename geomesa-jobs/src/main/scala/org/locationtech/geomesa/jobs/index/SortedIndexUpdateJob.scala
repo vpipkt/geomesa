@@ -19,10 +19,11 @@ package org.locationtech.geomesa.jobs.index
 import java.util
 
 import com.twitter.scalding._
-import org.apache.accumulo.core.data.{Key, Mutation, Value, Range => AcRange}
+import org.apache.accumulo.core.data.{Key, Mutation, Range => AcRange, Value}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.io.Text
 import org.geotools.data.DataStoreFinder
+import org.locationtech.geomesa.core.INTERNAL_GEOMESA_VERSION
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.data.tables.SpatioTemporalTable
 import org.locationtech.geomesa.core.index._

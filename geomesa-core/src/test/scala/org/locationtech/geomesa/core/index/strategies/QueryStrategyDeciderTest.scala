@@ -19,7 +19,7 @@ package org.locationtech.geomesa.core.index.strategies
 import org.geotools.data.Query
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
-import org.locationtech.geomesa.core.data
+import org.locationtech.geomesa.core.INTERNAL_GEOMESA_VERSION
 import org.locationtech.geomesa.core.filter.TestFilters._
 import org.locationtech.geomesa.core.util.SftBuilder
 import org.locationtech.geomesa.core.util.SftBuilder.Opts
@@ -52,7 +52,7 @@ class QueryStrategyDeciderTest extends Specification {
     .stringType("attr2")
     .build("featureNonIndex")
 
-  def getStrategy(filterString: String, version: Int = data.INTERNAL_GEOMESA_VERSION): Strategy = {
+  def getStrategy(filterString: String, version: Int = INTERNAL_GEOMESA_VERSION): Strategy = {
     val sft = if (version > 0) sftIndex else sftNonIndex
     val filter = ECQL.toFilter(filterString)
     val hints = new StaticStrategyHints()

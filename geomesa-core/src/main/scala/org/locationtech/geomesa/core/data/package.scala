@@ -75,12 +75,6 @@ import scala.collection.JavaConversions._
   val ALL_TIME_BOUNDS      = new Interval(new DateTime(0l), new DateTime())  // Epoch till now
   val DEFAULT_ENCODING     = FeatureEncoding.KRYO
 
-  // 0 == old single table style
-  // 1 == multi-table style
-  // 2 == sorted keys in the STIDX table
-  // 3 == time first index
-  val INTERNAL_GEOMESA_VERSION = 3
-
   // SimpleFeature Hints
   val TRANSFORMS           = new ClassKey(classOf[String])
   val TRANSFORM_SCHEMA     = new ClassKey(classOf[SimpleFeatureType])

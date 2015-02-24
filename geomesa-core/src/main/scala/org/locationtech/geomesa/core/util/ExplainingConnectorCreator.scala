@@ -17,7 +17,8 @@
 package org.locationtech.geomesa.core.util
 
 import org.apache.accumulo.core.client.{BatchScanner, Scanner}
-import org.locationtech.geomesa.core.data.{AccumuloConnectorCreator, INTERNAL_GEOMESA_VERSION}
+import org.locationtech.geomesa.core.INTERNAL_GEOMESA_VERSION
+import org.locationtech.geomesa.core.data.AccumuloConnectorCreator
 import org.locationtech.geomesa.core.index.ExplainerOutputType
 import org.opengis.feature.simple.SimpleFeatureType
 
