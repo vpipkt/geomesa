@@ -146,5 +146,3 @@ class TimeIndexStrategyTest extends Specification with TestWithDataStore {
     }.pendingUntilFixed("tequals doesn't work with ECQL.toFilter")
   }
 }
-//Total ranges: 1 - [0~1~TimeIndexStrategyTest~20140101~%00; : [], 0~1~TimeIndexStrategyTest~99991231~~%00; : [])
-//Total ranges: 1 - [0~1~TimeIndexStrategyTest~20140101~%00; : [], 0~1~TimeIndexStrategyTest~99991231~~%00; : [])

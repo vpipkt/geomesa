@@ -223,7 +223,7 @@ abstract class BaseSpatioTemporalStrategy extends Strategy with Logging with Ind
       case _ => Seq(new AccRange())
     }
 
-    output(s"Total ranges: ${accRanges.size} - ${accRanges.take(5).map(ExplainerOutputType.toString).mkString(",")}")
+    output(s"Total ranges (${accRanges.size}): ${accRanges.take(5).map(ExplainerOutputType.toString).mkString(",")}")
 
     // if you have a list of distinct column-family entries, fetch them
     val cf = columnFamilies match {
