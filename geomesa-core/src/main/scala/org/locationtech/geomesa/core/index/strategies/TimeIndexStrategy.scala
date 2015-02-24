@@ -52,7 +52,7 @@ class TimeIndexStrategy extends BaseSpatioTemporalStrategy {
   override def adaptKeyPlanner(keyPlanner: KeyPlanner) = keyPlanner match {
     case CompositePlanner(planners, sep) =>
       val i = planners.indexWhere(_.isInstanceOf[DateKeyPlanner])
-      if (i == -1) {
+      if (i == -1 || i == planners.length - 1) {
         keyPlanner
       } else {
         val partitioned = planners.splitAt(i + 1)
