@@ -66,10 +66,7 @@ case class KeyAccept(spacing: Int) extends KeyPlan {
   def join(right: KeyPlan, sep: String): KeyPlan = right match {
     case KeyRange(rstart, rend) => KeyRange(MIN_START + sep + rstart, MAX_END + sep + rend)
     case KeyRegex(rregex) => KeyRegex(".*?" + sep + rregex)
-    case KeyList(rkeys) => {
-      val sorted = rkeys.sorted
-      KeyRange(MIN_START + sep + sorted.head, MAX_END + sep + sorted.last)
-    }
+    case KeyList(rkeys) => KeyRange(MIN_START + sep + rkeys.min, MAX_END + sep + rkeys.max)
     case r: KeyAccept => KeyRange(MIN_START + sep + r.MIN_START, MAX_END + sep + r.MAX_END)
     case _ => KeyInvalid
   }
@@ -79,10 +76,7 @@ case class KeyRange(start: String, end: String) extends KeyPlan {
   def join(right: KeyPlan, sep: String): KeyPlan = right match {
     case KeyRange(rstart, rend) => KeyRange(start + sep + rstart, end + sep + rend)
     case KeyRegex(rregex) => KeyRegex(estimateRangeRegex(start, end) + sep + rregex)
-    case KeyList(rkeys) => {
-      val sorted = rkeys.sorted
-      KeyRange(start+sep+sorted.head, end+sep+sorted.last)
-    }
+    case KeyList(rkeys) => KeyRange(start + sep + rkeys.min, end + sep + rkeys.max)
     case r: KeyAccept => KeyRange(start + sep + r.MIN_START, end + sep + r.MAX_END)
     case KeyInvalid => KeyInvalid
     case _ => throw new Exception("Invalid KeyPlan match")
@@ -200,7 +194,7 @@ sealed trait KeyTiered extends KeyPlan {
     case KeyRange(rstart, rend)             => KeyRangeTiered(rstart, rend, Some(this))
     case KeyListTiered(rkeys, None)         => KeyListTiered(rkeys, Some(this))
     case KeyList(rkeys)                     => KeyListTiered(rkeys, Some(this))
-    case r: KeyAccept                       => KeyRangeTiered(r.MIN_START, r.MAX_END, Some(this))
+    case r: KeyAccept                       => KeyAcceptTiered(r.MIN_START, r.MAX_END, Some(this))
     case _                                  => KeyInvalid  // degenerate case
   }
 }
@@ -209,6 +203,19 @@ case class KeyRangeTiered(start: String, end: String, parent:Option[KeyTiered]=N
 }
 case class KeyListTiered(keys:Seq[String], parent:Option[KeyTiered]=None) extends KeyTiered {
   override val optList = Some(KeyList(keys))
+}
+case class KeyAcceptTiered(start: String, end: String, parent:Option[KeyTiered] = None) extends KeyTiered {
+  override val optRange = Some(KeyRange(start, end))
+
+  // anything to the right of this can only be filtered by the end points, can't maintain tiers anymore
+  override def join(right: KeyPlan, sep: String): KeyPlan = right match {
+    case KeyRangeTiered(rstart, rend, None) => KeyAcceptTiered(start + sep + rstart, end + sep + rend, parent)
+    case KeyRange(rstart, rend)             => KeyAcceptTiered(start + sep + rstart, end + sep + rend, parent)
+    case KeyListTiered(rkeys, None)         => KeyAcceptTiered(start + sep + rkeys.min, end + sep + rkeys.max, parent)
+    case KeyList(rkeys)                     => KeyAcceptTiered(start + sep + rkeys.min, end + sep + rkeys.max, parent)
+    case r: KeyAccept                       => KeyAcceptTiered(start + sep + r.MIN_START, end + sep + r.MAX_END, parent)
+    case _                                  => KeyInvalid  // degenerate case
+  }
 }
 
 object KeyUtils {
@@ -298,7 +305,7 @@ trait GeoHashPlanner extends Logging {
         val ghLL = GeoHash(env.getMinX, env.getMinY)
         val ghUR = GeoHash(env.getMaxX, env.getMaxY)
         KeyRange(ghLL.hash, ghUR.hash)
-      case subs => KeyList(subs.sorted)
+      case subs => KeyList(subs)
     }
   }
 

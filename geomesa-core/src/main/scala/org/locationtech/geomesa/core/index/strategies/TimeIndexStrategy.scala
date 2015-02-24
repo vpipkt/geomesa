@@ -80,7 +80,10 @@ class TimeIndexStrategy extends BaseSpatioTemporalStrategy {
       RowSkippingIterator.configure(cfg, suffixes)
       output(s"Row Suffixes (${suffixes.size}): ${suffixes.take(20).mkString(",")}")
       List(cfg)
-    }.getOrElse(List.empty)
+    }.getOrElse {
+      output(s"Row Suffixes: None")
+      List.empty
+    }
   }
 }
 

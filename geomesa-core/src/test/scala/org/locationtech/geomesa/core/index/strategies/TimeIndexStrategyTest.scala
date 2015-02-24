@@ -71,7 +71,9 @@ class TimeIndexStrategyTest extends Specification with TestWithDataStore {
   }
 
   val featureEncoding = ds.getFeatureEncoding(sft)
-  val queryPlanner = new QueryPlanner(sft, featureEncoding, null, ds.getTimeIndexSchemaFmt(sftName), ds, hints)
+  val stSchema = ds.getIndexSchemaFmt(sftName)
+  val tsSchema = ds.getTimeIndexSchemaFmt(sftName)
+  val queryPlanner = new QueryPlanner(sft, featureEncoding, stSchema, tsSchema, ds, hints)
 
   def execute(filter: String): List[SimpleFeature] = {
     val query = new Query(sftName, ECQL.toFilter(filter))
