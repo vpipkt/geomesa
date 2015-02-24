@@ -33,7 +33,7 @@ import org.geotools.data.{DataStore, Query}
 import org.geotools.factory.CommonFactoryFinder
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index.{IndexSchema, STIdxStrategy}
-import org.locationtech.geomesa.feature.{AvroFeatureDecoder, AvroFeatureEncoder, SimpleFeatureEncoder, AvroSimpleFeature}
+import org.locationtech.geomesa.feature._
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
@@ -58,7 +58,8 @@ object GeoMesaSpark {
     val typeName = query.getTypeName
     val sft = ds.getSchema(typeName)
     val spec = SimpleFeatureTypes.encodeType(sft)
-    val encoder = SimpleFeatureEncoder(sft, ds.getFeatureEncoding(sft))
+    val encoding = ds.getFeatureEncoding(sft)
+    val encoder = SimpleFeatureEncoder(sft, encoding)
     val indexSchema = IndexSchema(ds.getIndexSchemaFmt(typeName), sft, encoder)
 
     val planner = new STIdxStrategy
@@ -75,7 +76,7 @@ object GeoMesaSpark {
 
     rdd.mapPartitions { iter =>
       val sft = SimpleFeatureTypes.createType(typeName, spec)
-      val decoder = new AvroFeatureDecoder(sft)
+      val decoder = SimpleFeatureDecoder(sft, encoding)
       iter.map { case (k: Key, v: Value) => decoder.decode(v.get()) }
     }
   }
