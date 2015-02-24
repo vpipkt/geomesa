@@ -45,7 +45,7 @@ object ScalaSimpleFeatureFactory {
 
   private val cache = new SoftThreadLocalCache[SimpleFeatureType, SimpleFeatureBuilder]()
 
-  private def getFeatureBuilder(sft: SimpleFeatureType) =
+  def getFeatureBuilder(sft: SimpleFeatureType) =
     cache.getOrElseUpdate(sft, new SimpleFeatureBuilder(sft, featureFactory))
 
   def init() = Hints.putSystemDefault(Hints.FEATURE_FACTORY, classOf[ScalaSimpleFeatureFactory])
