@@ -22,10 +22,11 @@ import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIt
 import org.apache.hadoop.io.Text
 import org.locationtech.geomesa.core._
 
+import scala.collection.SortedSet
+
 class RowSkippingIterator extends GeomesaFilteringIterator {
 
-  var suffixes: Set[String] = null
-  var sortedSuffixes: List[String] = null
+  var suffixes: SortedSet[String] = null
   var suffixLength: Int = -1
 
   var currentRange: AccRange = null
@@ -34,15 +35,14 @@ class RowSkippingIterator extends GeomesaFilteringIterator {
 
   override def init(source: SortedKeyValueIterator[Key, Value],
                     options: java.util.Map[String, String],
-                    env: IteratorEnvironment) {
+                    env: IteratorEnvironment) = {
     super.init(source, options, env)
     val suffix = options.get(GEOMESA_ITERATORS_ROW_SUFFIX)
-    sortedSuffixes = suffix.split(",").toList // assumed to be sorted already
-    suffixes = sortedSuffixes.toSet
+    suffixes = SortedSet(suffix.split(","): _*)
     suffixLength = suffixes.head.length
   }
 
-  override def seek(range: AccRange, columnFamilies: java.util.Collection[ByteSequence], inclusive: Boolean) {
+  override def seek(range: AccRange, columnFamilies: java.util.Collection[ByteSequence], inclusive: Boolean) = {
     currentRange = range
     currentRangeInclusive = inclusive
     currentColumnFamilies = columnFamilies
@@ -57,11 +57,10 @@ class RowSkippingIterator extends GeomesaFilteringIterator {
       topKey = Some(key)
       topValue = Some(source.getTopValue)
     } else {
-      val nextSuffix = sortedSuffixes.find(s => s > suffix)
-      nextSuffix.foreach { s =>
-        val nextRow = new Text(row.substring(0, row.length - suffixLength) + s)
+      suffixes.find(_ > suffix).foreach { nextSuffix =>
+        val nextRow = new Text(row.substring(0, row.length - suffixLength) + nextSuffix)
         val start = new Key(nextRow)
-        val toClip =  if (currentRange.afterEndKey(start)) {
+        val toClip = if (currentRange.afterEndKey(start)) {
           // seek to the end of the range to exhaust the iterator
           new AccRange(currentRange.getEndKey, true, null, false)
         } else {
@@ -76,7 +75,7 @@ class RowSkippingIterator extends GeomesaFilteringIterator {
   override def deepCopy(env: IteratorEnvironment): SortedKeyValueIterator[Key, Value]  = {
     import scala.collection.JavaConverters._
     val iter = new RowSkippingIterator
-    val options = Map(GEOMESA_ITERATORS_ROW_SUFFIX -> sortedSuffixes.mkString(",")).asJava
+    val options = Map(GEOMESA_ITERATORS_ROW_SUFFIX -> suffixes.mkString(",")).asJava
     iter.init(source, options, env)
     iter
   }
@@ -84,6 +83,6 @@ class RowSkippingIterator extends GeomesaFilteringIterator {
 
 object RowSkippingIterator {
   def configure(cfg: IteratorSetting, suffixes: Seq[String]): Unit = {
-    cfg.addOption(GEOMESA_ITERATORS_ROW_SUFFIX, suffixes.sorted.mkString(","))
+    cfg.addOption(GEOMESA_ITERATORS_ROW_SUFFIX, suffixes.mkString(","))
   }
 }
