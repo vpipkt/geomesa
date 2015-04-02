@@ -62,43 +62,9 @@ object GeoMesaSpark {
 
   def rdd(conf: Configuration, params: Map[String, String], sc: SparkContext, query: Query, useMock: Boolean = false): RDD[SimpleFeature] = {
     val filter = ECQL.toCQL(query.getFilter)
-//    GeoMesaConfigurator.setDataStoreInParams(conf, params)
-//    GeoMesaConfigurator.setFeatureType(conf, query.getTypeName)
     val job = Job.getInstance(conf, "GeoMesa Spark")
-    GeoMesaInputFormat.configure(job, params, query.getTypeName, Some(filter))
-
-    job.getConfiguration.foreach {println}
-
-    sc.newAPIHadoopRDD(conf, classOf[GeoMesaInputFormat], classOf[Text], classOf[SimpleFeature]).map { case (t, sf) => sf }
-  }
-
-  def rddOld(conf: Configuration, sc: SparkContext, ds: AccumuloDataStore, query: Query, useMock: Boolean = false): RDD[SimpleFeature] = {
-    val typeName = query.getTypeName
-    val sft = ds.getSchema(typeName)
-    val spec = SimpleFeatureTypes.encodeType(sft)
-    val featureEncoding = ds.getFeatureEncoding(sft)
-    val indexSchema = ds.getIndexSchemaFmt(typeName)
-    val version = ds.getGeomesaVersion(sft)
-    val queryPlanner = new QueryPlanner(sft, featureEncoding, indexSchema, ds, ds.strategyHints(sft), version)
-
-    val qp = new STIdxStrategy().getQueryPlan(query, queryPlanner, ExplainPrintln)
-
-    ConfiguratorBase.setConnectorInfo(classOf[AccumuloInputFormat], conf, ds.connector.whoami(), ds.authToken)
-
-    if(useMock) ConfiguratorBase.setMockInstance(classOf[AccumuloInputFormat], conf, ds.connector.getInstance().getInstanceName)
-    else ConfiguratorBase.setZooKeeperInstance(classOf[AccumuloInputFormat], conf, ds.connector.getInstance().getInstanceName, ds.connector.getInstance().getZooKeepers)
-
-    InputConfigurator.setInputTableName(classOf[AccumuloInputFormat], conf, ds.getSpatioTemporalTable(sft))
-    InputConfigurator.setRanges(classOf[AccumuloInputFormat], conf, qp.ranges)
-    qp.iterators.foreach { is => InputConfigurator.addIterator(classOf[AccumuloInputFormat], conf, is) }
-
-    val rdd = sc.newAPIHadoopRDD(conf, classOf[AccumuloInputFormat], classOf[Key], classOf[Value])
-
-    rdd.mapPartitions { iter =>
-      val sft = SimpleFeatureTypes.createType(typeName, spec)
-      val decoder = SimpleFeatureDecoder(sft, featureEncoding)
-      iter.map { case (k: Key, v: Value) => decoder.decode(v.get()) }
-    }
+    GeoMesaInputFormat.configure(job, params, query.getTypeName, Some(filter), useMock)
+    sc.newAPIHadoopRDD(job.getConfiguration, classOf[GeoMesaInputFormat], classOf[Text], classOf[SimpleFeature]).map { case (t, sf) => sf }
   }
 
   /**

@@ -54,7 +54,8 @@ object GeoMesaInputFormat extends Logging {
   def configure(job: JobConf,
                 dsParams: Map[String, String],
                 featureTypeName: String,
-                filter: Option[String]): Unit = {
+                filter: Option[String],
+                useMock:Boolean = false ): Unit = {
 
     val ds = DataStoreFinder.getDataStore(dsParams).asInstanceOf[AccumuloDataStore]
 
@@ -67,7 +68,9 @@ object GeoMesaInputFormat extends Logging {
 
     val instance = AccumuloDataStoreFactory.params.instanceIdParam.lookUp(dsParams).asInstanceOf[String]
     val zookeepers = AccumuloDataStoreFactory.params.zookeepersParam.lookUp(dsParams).asInstanceOf[String]
-    InputFormatBase.setZooKeeperInstance(job, instance, zookeepers)
+
+    if (useMock) InputFormatBase.setMockInstance(job, instance)
+    else InputFormatBase.setZooKeeperInstance(job, instance, zookeepers)
 
     val auths = Option(AccumuloDataStoreFactory.params.authsParam.lookUp(dsParams).asInstanceOf[String])
     auths.foreach(a => InputFormatBase.setScanAuthorizations(job, new Authorizations(a.split(","): _*)))
@@ -149,7 +152,8 @@ class GeoMesaInputFormat extends InputFormat[Text, SimpleFeature] {
     init(job)
     val accumuloSplits = delegate.getSplits(job, numSplits)
     // try to create 2 mappers per node - account for case where there are less splits than shards
-    val groupSize = Math.max(numShards * 2, accumuloSplits.length / (numShards * 2))
+    val groupSize = if (numShards == 0)  accumuloSplits.length  // numShards = 0 for Mock Instances
+    else Math.max(numShards * 2, accumuloSplits.length / (numShards * 2))
 
     // We know each range will only have a single location because of autoAdjustRanges
     val splits = accumuloSplits.groupBy(_.getLocations()(0)).flatMap { case (location, splits) =>

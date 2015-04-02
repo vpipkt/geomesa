@@ -53,14 +53,21 @@ public class GeoMesaInputFormat extends InputFormat<Text, SimpleFeature> {
             throws IOException, InterruptedException {
         return delegate.createRecordReader(split, context);
     }
-
     public static void configure(org.apache.hadoop.mapreduce.Job job,
                                  Map<String, String> dataStoreParams,
                                  String featureTypeName,
                                  String filter) {
+        configure(job, dataStoreParams, featureTypeName, filter, false);
+    }
+
+    public static void configure(org.apache.hadoop.mapreduce.Job job,
+                                 Map<String, String> dataStoreParams,
+                                 String featureTypeName,
+                                 String filter,
+                                 Boolean useMock) {
         scala.collection.immutable.Map<String, String> scalaParams =
                 JavaConverters.asScalaMapConverter(dataStoreParams).asScala()
                               .toMap(Predef.<Tuple2<String, String>>conforms());
-        GeoMesaInputFormat$.MODULE$.configure(job, scalaParams, featureTypeName, Option.apply(filter));
+        GeoMesaInputFormat$.MODULE$.configure(job, scalaParams, featureTypeName, Option.apply(filter), useMock);
     }
 }
