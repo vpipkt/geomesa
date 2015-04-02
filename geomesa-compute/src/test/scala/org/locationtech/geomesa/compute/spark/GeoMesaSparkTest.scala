@@ -136,7 +136,8 @@ class GeoMesaSparkTest extends Specification with Logging {
       GeoMesaSpark.init(conf, ds)
       sc =  new SparkContext(conf) // will get shut down by shutdown method
 
-      val rdd = GeoMesaSpark.rdd(new Configuration(), sc, ds.asInstanceOf[AccumuloDataStore], new Query(typeName), useMock = true)
+      //val rdd = GeoMesaSpark.rdd(new Configuration(), sc, ds.asInstanceOf[AccumuloDataStore], new Query(typeName), useMock = true)
+      val rdd = GeoMesaSpark.rdd(new Configuration(), dsParams, sc, new Query(typeName))
 
       rdd.count() should equalTo(feats.length)
       feats.map(_.getAttribute("id")) should contain(rdd.take(1).head.getAttribute("id"))

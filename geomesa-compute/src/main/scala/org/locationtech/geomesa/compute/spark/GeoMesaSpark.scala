@@ -26,12 +26,17 @@ import org.apache.accumulo.core.client.mapreduce.AccumuloInputFormat
 import org.apache.accumulo.core.client.mapreduce.lib.util.{ConfiguratorBase, InputConfigurator}
 import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.io.Text
+import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.rdd.RDD
 import org.apache.spark.serializer.KryoRegistrator
 import org.apache.spark.{SparkConf, SparkContext}
 import org.geotools.data.{DataStore, DataStoreFinder, DefaultTransaction, Query}
 import org.geotools.factory.CommonFactoryFinder
+import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.core.data._
+import org.locationtech.geomesa.jobs.GeoMesaConfigurator
+import org.locationtech.geomesa.jobs.mapreduce._
 import org.locationtech.geomesa.core.index.{ExplainPrintln, STIdxStrategy, _}
 import org.locationtech.geomesa.feature._
 import org.locationtech.geomesa.feature.kryo.{KryoFeatureSerializer, SimpleFeatureSerializer}
@@ -46,7 +51,7 @@ object GeoMesaSpark {
     val typeOptions = ds.getTypeNames.map { t => (t, SimpleFeatureTypes.encodeType(ds.getSchema(t))) }
     typeOptions.foreach { case (k,v) => System.setProperty(typeProp(k), v) }
     val extraOpts = typeOptions.map { case (k,v) => jOpt(k, v) }.mkString(" ")
-    
+
     conf.set("spark.executor.extraJavaOptions", extraOpts)
     conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     conf.set("spark.kryo.registrator", classOf[GeoMesaSparkKryoRegistrator].getCanonicalName)
@@ -55,7 +60,19 @@ object GeoMesaSpark {
   def typeProp(typeName: String) = s"geomesa.types.$typeName"
   def jOpt(typeName: String, spec: String) = s"-D${typeProp(typeName)}=$spec"
 
-  def rdd(conf: Configuration, sc: SparkContext, ds: AccumuloDataStore, query: Query, useMock: Boolean = false): RDD[SimpleFeature] = {
+  def rdd(conf: Configuration, params: Map[String, String], sc: SparkContext, query: Query, useMock: Boolean = false): RDD[SimpleFeature] = {
+    val filter = ECQL.toCQL(query.getFilter)
+//    GeoMesaConfigurator.setDataStoreInParams(conf, params)
+//    GeoMesaConfigurator.setFeatureType(conf, query.getTypeName)
+    val job = Job.getInstance(conf, "GeoMesa Spark")
+    GeoMesaInputFormat.configure(job, params, query.getTypeName, Some(filter))
+
+    job.getConfiguration.foreach {println}
+
+    sc.newAPIHadoopRDD(conf, classOf[GeoMesaInputFormat], classOf[Text], classOf[SimpleFeature]).map { case (t, sf) => sf }
+  }
+
+  def rddOld(conf: Configuration, sc: SparkContext, ds: AccumuloDataStore, query: Query, useMock: Boolean = false): RDD[SimpleFeature] = {
     val typeName = query.getTypeName
     val sft = ds.getSchema(typeName)
     val spec = SimpleFeatureTypes.encodeType(sft)
@@ -113,8 +130,8 @@ object GeoMesaSpark {
     }
   }
 
-  def countByDay(conf: Configuration, sccc: SparkContext, ds: AccumuloDataStore, query: Query, dateField: String = "dtg") = {
-    val d = rdd(conf, sccc, ds, query)
+  def countByDay(conf: Configuration, sccc: SparkContext, params: Map[String, String], query: Query, dateField: String = "dtg") = {
+    val d = rdd(conf, params, sccc, query)
     val dayAndFeature = d.mapPartitions { iter =>
       val df = new SimpleDateFormat("yyyyMMdd")
       val ff = CommonFactoryFinder.getFilterFactory2
