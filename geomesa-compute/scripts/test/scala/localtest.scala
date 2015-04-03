@@ -15,7 +15,7 @@
  */
 
 // Run with:
-// bin/spark-shell --driver-class-path /path/to/geomesa-compute-accumulo1.5-1.0.0-rc.2-SNAPSHOT-shaded.jar
+// bin/spark-shell --driver-class-path /path/to/geomesa-compute-accumulo1.5-1.0.0-rc.6-SNAPSHOT-shaded.jar
 // copy paste all this into the spark shell version 1.1.0
 
 import java.text.SimpleDateFormat
@@ -51,7 +51,7 @@ val sconf = GeoMesaSpark.init(new SparkConf(true).setAppName("localtest").setMas
 val sc = new SparkContext(sconf)
 
 // Create an RDD from a query
-val queryRDD = org.locationtech.geomesa.compute.spark.GeoMesaSpark.rdd(conf, sc, ds, q)
+val queryRDD = org.locationtech.geomesa.compute.spark.GeoMesaSpark.rdd(conf, params, sc, q)
 
 // Convert RDD[SimpleFeature] to RDD[(String, SimpleFeature)] where the first
 // element of the tuple is the date to the day resolution
