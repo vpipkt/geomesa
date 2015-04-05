@@ -26,6 +26,7 @@ import org.locationtech.geomesa.feature.AvroSimpleFeature
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.JavaConversions._
+import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 trait Field {
@@ -114,33 +115,38 @@ trait ToSimpleFeatureConverter[I] extends SimpleFeatureConverter[I] with Logging
 
     }.toIndexedSeq
 
-  val inputFieldIndexes = requiredFields.map(_.name).zipWithIndex.toMap
+  val inputFieldIndexes =
+    mutable.HashMap.empty[String, Int] ++= requiredFields.map(_.name).zipWithIndex.toMap
 
   implicit val ctx = new EvaluationContext(inputFieldIndexes, null)
 
+  var reuse: Array[Any] = null
   def convert(t: Array[Any], reuse: Array[Any]): SimpleFeature = {
     import spire.syntax.cfor._
     ctx.incrementCount()
-
-    val attributes =
-      if(reuse == null) Array.ofDim[Any](nfields)
-      else reuse
-    ctx.computedFields = attributes
+    ctx.computedFields = reuse
 
     cfor(0)(_ < nfields, _ + 1) { i =>
-      attributes(i) = requiredFields(i).eval(t)
+      reuse(i) = requiredFields(i).eval(t)
     }
 
     val id = idBuilder.eval(t).asInstanceOf[String]
     val sf = new AvroSimpleFeature(new FeatureIdImpl(id), targetSFT)
-    indexes.foreach(i => sf.setAttributeNoConvert(i._1, attributes(i._2).asInstanceOf[Object]))
+    for((sftIdx, arrIdx) <- indexes) {
+      sf.setAttributeNoConvert(sftIdx, reuse(arrIdx).asInstanceOf[Object])
+    }
     sf
   }
 
-  var reuse = Array.ofDim[Any](nfields)
-
-  def processSingleInput(i: I, gParams: Map[String, String] = Map.empty): Option[SimpleFeature] = {
-    updateReuseWithGP(gParams)
+  def processSingleInput(i: I, gParams: Map[String, String]): Option[SimpleFeature] = {
+    if(reuse == null) {
+      reuse = Array.ofDim[Any](nfields + gParams.size)
+      gParams.zipWithIndex.foreach { case ((k, v), idx) =>
+        val shiftedIdx = nfields + idx
+        reuse(shiftedIdx) = v
+        ctx.fieldNameMap(k) = shiftedIdx
+      }
+    }
     Try { convert(fromInputType(i), reuse) } match {
       case Success(s) => Some(s)
       case Failure(t) =>
@@ -150,19 +156,8 @@ trait ToSimpleFeatureConverter[I] extends SimpleFeatureConverter[I] with Logging
   }
 
   def processInput(is: Iterator[I], gParams: Map[String, String] = Map.empty): Iterator[SimpleFeature] = {
-    ctx.resetCount()
-    updateReuseWithGP(gParams)
-    is.flatMap { s => processSingleInput(s) }
-  }
-
-  private def updateReuseWithGP(gParams: Map[String, String] = Map.empty): Unit = {
-    if (gParams.nonEmpty) {
-      ctx.globalParams = Some(gParams)
-      ctx.globalParams.foreach { gp =>
-        ctx.fieldNameMap = inputFieldIndexes ++ gp.zipWithIndex.map(p => (p._1._1, p._2 + nfields))
-        gp.valuesIterator.foreach(v => reuse = reuse :+ v)
-      }
-    }
+    ctx.resetCount() 
+    is.flatMap { s => processSingleInput(s, gParams) }
   }
 
 }

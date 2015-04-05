@@ -102,9 +102,8 @@ object Transformers extends JavaTokenParsers {
     def transformExpr: Parser[Expr] = cast2double | cast2int | expr
   }
 
-  class EvaluationContext(var fieldNameMap: Map[String, Int], var computedFields: Array[Any]) {
+  class EvaluationContext(var fieldNameMap: mutable.HashMap[String, Int], var computedFields: Array[Any]) {
     private var count: Int = 0
-    var globalParams: Option[Map[String, String]] = None
     def indexOf(n: String): Int = fieldNameMap.getOrElse(n, -1)
     def lookup(i: Int) = if(i < 0) null else computedFields(i)
     def getCount(): Int = count

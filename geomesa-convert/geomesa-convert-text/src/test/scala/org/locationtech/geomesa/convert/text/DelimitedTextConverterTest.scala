@@ -169,8 +169,6 @@ class DelimitedTextConverterTest extends Specification {
       res(1).getAttribute("fn").asInstanceOf[String] must be equalTo "/some/file/path/testfile.txt"
     }
 
-
-
     "handle projecting to just the attributes in the SFT (and associated input dependencies)" >> {
       // l3 has cascading dependencies
       val subsft = SimpleFeatureTypes.createType("subsettest", "l3:String,geom:Point:srid=4326")
