@@ -55,10 +55,16 @@ class CompositeConverter[I](val targetSFT: SimpleFeatureType,
   override def processSingleInput(i: I, gParams: Map[String, String] = Map.empty): Option[SimpleFeature] = null
 
   implicit val ec = new EvaluationContext(Map(), Array())
-  def processIfValid(input: I, pred: Predicate, conv: SimpleFeatureConverter[I]) =
-    Try { pred.eval(input) }.toOption.flatMap { v => if(v) conv.processSingleInput(input) else None }
 
+  private val mutableArray = Array.ofDim[Any](1)
+
+  def processIfValid(input: I, pred: Predicate, conv: SimpleFeatureConverter[I]) = {
+    val opt =
+      Try {
+        mutableArray(0) = input
+        pred.eval(mutableArray)
+      }.toOption
+
+    opt.flatMap { v => if (v) conv.processSingleInput(input) else None }
+  }
 }
-
-
-

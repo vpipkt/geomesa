@@ -56,7 +56,7 @@ object Transformers extends JavaTokenParsers {
     def fieldLookup = "$" ~> ident ^^ { i => FieldLookup(i) }
     def fnName      = ident ^^ { n => LitString(n) }
     def fn          = (fnName <~ OPEN_PAREN) ~ (repsep(transformExpr, ",") <~ CLOSE_PAREN) ^^ {
-      case LitString(name) ~ e => FunctionExpr(functionMap(name).getInstance, e)
+      case LitString(name) ~ e => FunctionExpr(functionMap(name).getInstance, e.toArray)
     }
     def strEq       = ("strEq" ~ OPEN_PAREN) ~> (transformExpr ~ "," ~ transformExpr) <~ CLOSE_PAREN ^^ {
       case l ~ "," ~ r => StrEQ(l, r)
@@ -113,12 +113,12 @@ object Transformers extends JavaTokenParsers {
   }
 
   sealed trait Expr {
-    def eval(args: Any*)(implicit ctx: EvaluationContext): Any
+    def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any
   }
 
   sealed trait Lit[T <: Any] extends Expr {
     def value: T
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = value
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = value
   }
 
   case class LitString(value: String) extends Lit[String]
@@ -126,50 +126,50 @@ object Transformers extends JavaTokenParsers {
   case class LitLong(value: Long) extends Lit[Long]
   case class LitDouble(value: java.lang.Double) extends Lit[java.lang.Double]
   case class Cast2Int(e: Expr) extends Expr {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = e.eval(args: _*).asInstanceOf[String].toInt
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = e.eval(args).asInstanceOf[String].toInt
   }
 
   case class Cast2Double(e: Expr) extends Expr {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = e.eval(args: _*).asInstanceOf[String].toDouble
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = e.eval(args).asInstanceOf[String].toDouble
   }
   case class Cast2Long(e: Expr) extends Expr {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = e.eval(args: _*).asInstanceOf[String].toLong
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = e.eval(args).asInstanceOf[String].toLong
   }
 
   case object WholeRecord extends Expr {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = args(0)
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = args(0)
   }
 
   case class Col(i: Int) extends Expr {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = args(i)
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = args(i)
   }
 
   case class FieldLookup(n: String) extends Expr {
     var idx = -1
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = {
-      if (idx == -1) idx = ctx.indexOf(n)
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = {
+      if(idx == -1) idx = ctx.indexOf(n)
       ctx.lookup(idx)
     }
   }
 
   case class RegexExpr(s: String) extends Expr {
     val compiled = s.r
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = compiled
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = compiled
   }
 
-  case class FunctionExpr(f: TransformerFn, arguments: Seq[Expr]) extends Expr {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Any = f.eval(arguments.map(_.eval(args: _*)): _*)
+  case class FunctionExpr(f: TransformerFn, arguments: Array[Expr]) extends Expr {
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Any = f.eval(arguments.map(_.eval(args)))
   }
 
   sealed trait Predicate {
-    def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean
+    def eval(args: Array[Any])(implicit ctx: EvaluationContext): Boolean
   }
 
   class BinaryPredicate[T](left: Expr, right: Expr, isEqual: (T, T) => Boolean) extends Predicate {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean = eval(left, right, args: _*)
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Boolean = eval(left, right, args)
 
-    def eval(left: Expr, right: Expr, args: Any*)(implicit ctx: EvaluationContext): Boolean =
-      isEqual(left.eval(args: _*).asInstanceOf[T], right.eval(args: _*).asInstanceOf[T])
+    def eval(left: Expr, right: Expr, args: Array[Any])(implicit ctx: EvaluationContext): Boolean =
+      isEqual(left.eval(args).asInstanceOf[T], right.eval(args).asInstanceOf[T])
   }
 
   def buildPred[T](f: (T, T) => Boolean): (Expr, Expr) => BinaryPredicate[T] = new BinaryPredicate[T](_, _, f)
@@ -192,11 +192,11 @@ object Transformers extends JavaTokenParsers {
   val DGT      = buildPred[Double](_ > _)
   
   case class Not(p: Predicate) extends Predicate {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean = !p.eval(args: _*)
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Boolean = !p.eval(args)
   }
 
   class BinaryLogicPredicate(l: Predicate, r: Predicate, f: (Boolean, Boolean) => Boolean) extends Predicate {
-    override def eval(args: Any*)(implicit ctx: EvaluationContext): Boolean = f(l.eval(args: _*), r.eval(args: _*))
+    override def eval(args: Array[Any])(implicit ctx: EvaluationContext): Boolean = f(l.eval(args), r.eval(args))
   }
 
   def buildBinaryLogicPredicate(f: (Boolean, Boolean) => Boolean): (Predicate, Predicate) => BinaryLogicPredicate = new BinaryLogicPredicate(_, _, f)
@@ -212,14 +212,14 @@ object Transformers extends JavaTokenParsers {
 object TransformerFn {
   def apply(n: String)(f: Seq[Any] => Any) =
     new TransformerFn {
-      override def eval(args: Any*)(implicit ctx: Transformers.EvaluationContext): Any = f(args)
+      override def eval(args: Array[Any])(implicit ctx: Transformers.EvaluationContext): Any = f(args)
       override def name: String = n
   }
 }
 
 trait TransformerFn {
   def name: String
-  def eval(args: Any*)(implicit ctx: Transformers.EvaluationContext): Any
+  def eval(args: Array[Any])(implicit ctx: Transformers.EvaluationContext): Any
   // some transformers cache arguments that don't change, override getInstance in order
   // to return a new transformer that can cache args
   def getInstance: TransformerFn = this
@@ -259,14 +259,14 @@ class DateFunctionFactory extends TransformerFunctionFactory {
   val millisToDate = TransformerFn("millisToDate") { args => new Date(args(0).asInstanceOf[Long]) }
 
   case class StandardDateParser(name: String, format: DateTimeFormatter) extends TransformerFn {
-    override def eval(args: Any*)(implicit ctx: Transformers.EvaluationContext): Any = format.parseDateTime(args(0).toString).toDate
+    override def eval(args: Array[Any])(implicit ctx: Transformers.EvaluationContext): Any = format.parseDateTime(args(0).toString).toDate
   }
 
   case class CustomFormatDateParser(var format: DateTimeFormatter = null) extends TransformerFn {
     val name = "date"
     override def getInstance: CustomFormatDateParser = CustomFormatDateParser()
 
-    override def eval(args: Any*)(implicit ctx: Transformers.EvaluationContext): Any = {
+    override def eval(args: Array[Any])(implicit ctx: Transformers.EvaluationContext): Any = {
       if(format == null) format = DateTimeFormat.forPattern(args(0).asInstanceOf[String]).withZoneUTC()
       format.parseDateTime(args(1).asInstanceOf[String]).toDate
     }
@@ -292,7 +292,7 @@ class IdFunctionFactory extends TransformerFunctionFactory {
 
     override def name: String = "md5"
     val hasher = Hashing.md5()
-    override def eval(args: Any*)(implicit ctx: Transformers.EvaluationContext): Any = hasher.hashBytes(args(0).asInstanceOf[Array[Byte]]).toString
+    override def eval(args: Array[Any])(implicit ctx: Transformers.EvaluationContext): Any = hasher.hashBytes(args(0).asInstanceOf[Array[Byte]]).toString
   }
 
   val uuidFn = TransformerFn("uuid")   { args => UUID.randomUUID().toString }
@@ -306,7 +306,7 @@ class LineNumberFunctionFactory extends TransformerFunctionFactory {
   case class LineNumberFn() extends TransformerFn {
     override def getInstance: LineNumberFn = LineNumberFn()
     override def name: String = "lineNo"
-    def eval(args: Any*)(implicit ctx: Transformers.EvaluationContext): Any = ctx.getCount()
+    def eval(args: Array[Any])(implicit ctx: Transformers.EvaluationContext): Any = ctx.getCount()
   }
 
 }
