@@ -31,8 +31,8 @@ import org.junit.runner.RunWith
 import org.locationtech.geomesa.core.data._
 import org.locationtech.geomesa.core.index.{Constants, QueryHints}
 import org.locationtech.geomesa.core.iterators.TemporalDensityIterator.{TIME_SERIES, decodeTimeSeries, jsonToTimeSeries}
-import org.locationtech.geomesa.core.process.temporalDensity.TemporalDensityProcess
 import org.locationtech.geomesa.feature.AvroSimpleFeatureFactory
+import org.locationtech.geomesa.process.temporalDensity.TemporalDensityProcess
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.specs2.mutable.Specification

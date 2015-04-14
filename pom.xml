@@ -37,6 +37,7 @@
         <module>geomesa-compute</module>
         <module>geomesa-assemble</module>
         <module>geomesa-web</module>
+        <module>geomesa-wps</module>
     </modules>
 
     <properties>

@@ -23,12 +23,7 @@ import org.geotools.data.simple.{SimpleFeatureCollection, SimpleFeatureIterator,
 import org.geotools.feature.visitor.{BoundsVisitor, MaxVisitor, MinVisitor}
 import org.locationtech.geomesa.core.index.QueryHints._
 import org.locationtech.geomesa.core.iterators.TemporalDensityIterator.createFeatureType
-import org.locationtech.geomesa.core.process.knn.KNNVisitor
-import org.locationtech.geomesa.core.process.proximity.ProximityVisitor
-import org.locationtech.geomesa.core.process.query.QueryVisitor
-import org.locationtech.geomesa.core.process.temporalDensity.TemporalDensityVisitor
-import org.locationtech.geomesa.core.process.tube.TubeVisitor
-import org.locationtech.geomesa.core.process.unique.AttributeVisitor
+import org.locationtech.geomesa.process.temporalDensity.TemporalDensityVisitor
 import org.locationtech.geomesa.core.util.TryLoggingFailure
 import org.opengis.feature.FeatureVisitor
 import org.opengis.feature.`type`.Name
