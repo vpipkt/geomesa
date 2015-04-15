@@ -38,6 +38,7 @@
         <module>geomesa-assemble</module>
         <module>geomesa-web</module>
         <module>geomesa-process</module>
+        <module>geomesa-stream</module>
     </modules>
 
     <properties>
