@@ -37,7 +37,7 @@ case class FeatureHolder(sf: SimpleFeature, env: Envelope) {
   }
 }
 
-class StreamDataStore(source: SimpleFeatureStreamSource) extends ContentDataStore {
+class StreamDataStore(source: SimpleFeatureStreamSource, timeout: Int) extends ContentDataStore {
   
   val sft = source.sft
   source.init()
@@ -46,7 +46,7 @@ class StreamDataStore(source: SimpleFeatureStreamSource) extends ContentDataStor
   val cb =
     CacheBuilder
       .newBuilder()
-      .expireAfterWrite(10, TimeUnit.SECONDS)
+      .expireAfterWrite(timeout, TimeUnit.SECONDS)
       .removalListener(
         new RemovalListener[String, FeatureHolder] {
           def onRemoval(removal: RemovalNotification[String, FeatureHolder]) = {
@@ -167,6 +167,7 @@ class StreamFeatureStore(entry: ContentEntry,
 
 object StreamDataStoreParams {
   val STREAM_DATASTORE_CONFIG = new Param("geomesa.stream.datastore.config", classOf[String], "", true)
+  val CACHE_TIMEOUT = new Param("geomesa.stream.datastore.cache.timeout", classOf[java.lang.Integer], "", true, 10)
 }
 
 class StreamDataStoreFactory extends DataStoreFactorySpi {
@@ -175,9 +176,10 @@ class StreamDataStoreFactory extends DataStoreFactorySpi {
 
   override def createDataStore(params: ju.Map[String, java.io.Serializable]): DataStore = {
     val confString = STREAM_DATASTORE_CONFIG.lookUp(params).asInstanceOf[String]
+    val timeout = Option(CACHE_TIMEOUT.lookUp(params)).map(_.asInstanceOf[Int]).getOrElse(10)
     val conf = ConfigFactory.parseString(confString)
     val source = SimpleFeatureStreamSource.buildSource(conf)
-    new StreamDataStore(source)
+    new StreamDataStore(source, timeout)
   }
 
   override def createNewDataStore(params: ju.Map[String, java.io.Serializable]): DataStore = ???

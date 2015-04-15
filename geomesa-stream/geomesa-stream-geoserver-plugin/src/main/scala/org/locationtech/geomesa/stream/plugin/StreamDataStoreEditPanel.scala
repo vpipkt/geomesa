@@ -22,7 +22,7 @@ import org.apache.wicket.markup.html.form.{Form, FormComponent}
 import org.apache.wicket.markup.html.panel.Panel
 import org.apache.wicket.model.{IModel, PropertyModel, ResourceModel}
 import org.geoserver.web.data.store.StoreEditPanel
-import org.geoserver.web.data.store.panel.{ParamPanel, PasswordParamPanel, TextAreaParamPanel}
+import org.geoserver.web.data.store.panel.{ParamPanel, PasswordParamPanel, TextAreaParamPanel, TextParamPanel}
 import org.geoserver.web.util.MapModel
 import org.geotools.data.DataAccessFactory.Param
 import org.locationtech.geomesa.stream.datastore.StreamDataStoreParams
@@ -35,10 +35,11 @@ class StreamDataStoreEditPanel(componentId: String, storeEditForm: Form[_])
   setDefaultModel(model)
   val paramsModel = new PropertyModel(model, "connectionParameters")
 
-  val confParam       = addTextPanel(paramsModel, StreamDataStoreParams.STREAM_DATASTORE_CONFIG)
+  val confParam       = addTextAreaParamPanel(paramsModel, StreamDataStoreParams.STREAM_DATASTORE_CONFIG)
+  val timeoutParam    = addTextParamPanel(paramsModel, StreamDataStoreParams.CACHE_TIMEOUT)
 
   val dependentFormComponents =
-    Array[FormComponent[_]](confParam)
+    Array[FormComponent[_]](confParam, timeoutParam)
 
   dependentFormComponents.foreach(_.setOutputMarkupId(true))
 
@@ -47,12 +48,23 @@ class StreamDataStoreEditPanel(componentId: String, storeEditForm: Form[_])
     override def validate(form: Form[_]) {}
   })
 
-  def addTextPanel(paramsModel: IModel[_], param: Param): FormComponent[_] = {
+  def addTextAreaParamPanel(paramsModel: IModel[_], param: Param): FormComponent[_] = {
     val paramName = param.key
     val resourceKey = getClass.getSimpleName + "." + paramName
     val required = param.required
     val textParamPanel =
       new TextAreaParamPanel(paramName,
+        new MapModel(paramsModel, paramName).asInstanceOf[IModel[_]],
+        new ResourceModel(resourceKey, paramName), required)
+    addPanel(textParamPanel, param, resourceKey)
+  }
+
+  def addTextParamPanel(paramsModel: IModel[_], param: Param): FormComponent[_] = {
+    val paramName = param.key
+    val resourceKey = getClass.getSimpleName + "." + paramName
+    val required = param.required
+    val textParamPanel =
+      new TextParamPanel(paramName,
         new MapModel(paramsModel, paramName).asInstanceOf[IModel[_]],
         new ResourceModel(resourceKey, paramName), required)
     addPanel(textParamPanel, param, resourceKey)

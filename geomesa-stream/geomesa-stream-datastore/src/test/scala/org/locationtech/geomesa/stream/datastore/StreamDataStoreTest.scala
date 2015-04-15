@@ -46,7 +46,11 @@ class StreamDataStoreTest extends Specification {
         |}
       """.stripMargin
 
-    val ds = DataStoreFinder.getDataStore(Map(StreamDataStoreParams.STREAM_DATASTORE_CONFIG.key -> sourceConf))
+    val ds = DataStoreFinder.getDataStore(
+      Map(
+        StreamDataStoreParams.STREAM_DATASTORE_CONFIG.key -> sourceConf,
+        StreamDataStoreParams.CACHE_TIMEOUT.key -> Integer.valueOf(2)
+      ))
 
     "be built from a conf string" >> {
       ds must not be null
@@ -73,7 +77,7 @@ class StreamDataStoreTest extends Specification {
     }
 
     "expire data after the appropriate amount of time" >> {
-      Thread.sleep(6000)
+      Thread.sleep(3000)
       fs.getFeatures(Filter.INCLUDE).features().hasNext must beFalse
     }
   }
