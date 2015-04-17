@@ -1,26 +1,27 @@
 # GeoMesa Stream Processing
 
 The GeoMesa Stream library provides tools to process streams of
-```SimpleFeatures```.  The library can be used to instantiate a
-```DataStore``` either in GeoServer or in a user's application to serve
-as a constant source of ```SimpleFeatures```.  For example, you
-can instantiate a ```DataStore``` that will connect to Twitter and
+`SimpleFeatures`.  The library can be used to instantiate a
+`DataStore` either in GeoServer or in a user's application to serve
+as a constant source of `SimpleFeatures`.  For example, you
+can instantiate a `DataStore` that will connect to Twitter and
 show the most recent tweets in a spatial context.  The timeout for
-the ```DataStore``` is configurable.  A stream can be defined against
-any source that can be processed by Apache Camel.  A ```SimpleFeatureConverter```
+the `DataStore` is configurable.  A stream can be defined against
+any source that can be processed by Apache Camel.  A `SimpleFeatureConverter`
 can be attached to the stream to translate the underlying data into
-```SimpleFeatures```.
+`SimpleFeatures`.
 
 ## Modules
- * ```geomesa-stream-api``` - the stream source and processing APIs
- * ```geomesa-stream-generic``` - definition of the Camel generic source
- * ```geomesa-stream-datastore``` - ```DataStore``` implementation
- * ```geomesa-geoserver-plugin``` - GeoServer hooks for stream sources
+ * `geomesa-stream-api` - the stream source and processing APIs
+ * `geomesa-stream-generic` - definition of the Camel generic source
+ * `geomesa-stream-datastore` - `DataStore` implementation
+ * `geomesa-geoserver-plugin` - GeoServer hooks for stream sources
  
 ## Usage
 
 To illustrate usage, assume we are processing a stream of Twitter data
 as a csv.  The configuration in GeoServer is as follows:
+
 
 ```javascript
    {
