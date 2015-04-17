@@ -28,23 +28,38 @@ as a csv.  The configuration in GeoServer is as follows:
      type         = "generic"
      source-route = "netty4:tcp://localhost:5899?textline=true"
      sft          = {
-                      type-name = "testdata"
+                      type-name = "twitter"
                       fields = [
-                        { name = "label",     type = "String" }
+                        { name = "user",      type = "String" }
+                        { name = "msg",       type = "String" }
                         { name = "geom",      type = "Point",  index = true, srid = 4326, default = true }
                         { name = "dtg",       type = "Date",   index = true }
                       ]
                     }
-     threads      = 4
      converter    = {
                       id-field = "md5(string2bytes($0))"
                       type = "delimited-text"
                       format = "DEFAULT"
                       fields = [
-                        { name = "label",     transform = "trim($1)" }
+                        { name = "user",      transform = "$0" }
+                        { name = "msg",       transform = "$1" }
                         { name = "geom",      transform = "point($2::double, $3::double)" }
                         { name = "dtg",       transform = "datetime($4)" }
                       ]
                     }
    }
 ```   
+
+This defines a stream source that will listen on port 5899 for csv messages
+that have the  following columns: `user`, `msg`, `lon`, `lat`, `dtg`.  To instantiate
+a `DataStore` for this type that keeps the last 30 seconds of tweets, use the following code.
+
+```scala
+    val ds = DataStoreFinder.getDataStore(
+      Map(
+        StreamDataStoreParams.STREAM_DATASTORE_CONFIG.key -> sourceConf,
+        StreamDataStoreParams.CACHE_TIMEOUT.key           -> Integer.valueOf(30)
+      ))
+```
+
+Finally, to query this stream source, use a `FilterFactory` from `org.geotools.factory.CommonFactoryFinder`.
