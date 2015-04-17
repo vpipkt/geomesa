@@ -62,4 +62,13 @@ val ds = DataStoreFinder.getDataStore(
   ))
 ```
 
-Finally, to query this stream source, use a `FilterFactory` from `org.geotools.factory.CommonFactoryFinder`.
+To query this stream source, use a `FilterFactory` from `org.geotools.factory.CommonFactoryFinder`.
+To receive notifications on new `SimpleFeatures`, use a `StreamListener`:
+
+```scala
+val listener = 
+  new StreamListener {
+    def onNext(sf: SimpleFeature) = println(s"Received a new feature: ${sf.getID}")
+  }
+ds.asInstanceOf[org.locationtech.geomesa.stream.datastore.StreamDataStore].registerListener(listener)
+```    

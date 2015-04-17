@@ -1,12 +1,14 @@
 package org.locationtech.geomesa.stream.datastore
 
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.atomic.AtomicLong
 
 import com.google.common.io.Resources
 import org.apache.commons.io.IOUtils
 import org.apache.commons.net.DefaultSocketFactory
 import org.geotools.data.DataStoreFinder
 import org.junit.runner.RunWith
+import org.opengis.feature.simple.SimpleFeature
 import org.opengis.filter.Filter
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -16,6 +18,8 @@ import scala.concurrent.Future
 
 @RunWith(classOf[JUnitRunner])
 class StreamDataStoreTest extends Specification {
+
+  sequential
 
   "StreamDataStore" should {
 
@@ -32,7 +36,6 @@ class StreamDataStoreTest extends Specification {
         |                     { name = "dtg",       type = "Date",   index = true }
         |                   ]
         |                 }
-        |  threads      = 4
         |  converter    = {
         |                   id-field = "md5(string2bytes($0))"
         |                   type = "delimited-text"
@@ -56,6 +59,14 @@ class StreamDataStoreTest extends Specification {
       ds must not be null
     }
 
+    val count = new AtomicLong(0)
+    val listener = new StreamListener {
+      override def onNext(sf: SimpleFeature): Unit = {
+        count.incrementAndGet()
+      }
+    }
+    ds.asInstanceOf[StreamDataStore].registerListener(listener)
+
     val fs = ds.getFeatureSource("testdata")
 
     "handle new data" >> {
@@ -74,6 +85,10 @@ class StreamDataStoreTest extends Specification {
 
       Thread.sleep(1000)
       fs.getFeatures(Filter.INCLUDE).features().hasNext must beTrue
+    }
+
+    "support listeners" >> {
+      count.get() must equalTo(3)
     }
 
     "expire data after the appropriate amount of time" >> {

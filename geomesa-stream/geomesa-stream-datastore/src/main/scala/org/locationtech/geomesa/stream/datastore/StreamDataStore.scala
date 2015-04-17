@@ -1,7 +1,9 @@
 package org.locationtech.geomesa.stream.datastore
 
 import java.awt.RenderingHints
+import java.util.Collections
 import java.util.concurrent.{Executors, TimeUnit}
+import java.util.logging.Level
 import java.{util => ju}
 
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
@@ -37,6 +39,10 @@ case class FeatureHolder(sf: SimpleFeature, env: Envelope) {
   }
 }
 
+trait StreamListener {
+  def onNext(sf: SimpleFeature): Unit
+}
+
 class StreamDataStore(source: SimpleFeatureStreamSource, timeout: Int) extends ContentDataStore {
   
   val sft = source.sft
@@ -57,6 +63,8 @@ class StreamDataStore(source: SimpleFeatureStreamSource, timeout: Int) extends C
 
   val features: Cache[String, FeatureHolder] = cb.build()
 
+  val listeners = Collections.synchronizedList(Lists.newArrayList[StreamListener]())
+
   Executors.newSingleThreadExecutor().submit(
     new Runnable {
       override def run(): Unit = {
@@ -67,6 +75,13 @@ class StreamDataStore(source: SimpleFeatureStreamSource, timeout: Int) extends C
               val env = sf.geometry.getEnvelopeInternal
               qt.insert(env, sf)
               features.put(sf.getID, FeatureHolder(sf, env))
+              listeners.foreach { l =>
+                try {
+                  l.onNext(sf)
+                } catch {
+                  case t: Throwable => getLogger.log(Level.WARNING, "Unable to notify listener", t)
+                }
+              }
             }
           } catch {
             case t: Throwable =>
@@ -79,6 +94,8 @@ class StreamDataStore(source: SimpleFeatureStreamSource, timeout: Int) extends C
 
   override def createFeatureSource(entry: ContentEntry): ContentFeatureSource =
     new StreamFeatureStore(entry, null, features, qt, sft)
+
+  def registerListener(listener: StreamListener): Unit = listeners.add(listener)
 
   override def createTypeNames(): ju.List[Name] = Lists.newArrayList(sft.getName) 
 }
@@ -93,6 +110,9 @@ class StreamFeatureStore(entry: ContentEntry,
   type FR = FeatureReader[SimpleFeatureType, SimpleFeature]
   type DFR = DelegateFeatureReader[SimpleFeatureType, SimpleFeature]
   type DFI = DelegateFeatureIterator[SimpleFeature]
+
+
+  override def canFilter: Boolean = true
 
   override def getBoundsInternal(query: Query) =
     ReferencedEnvelope.create(new Envelope(-180, 180, -90, 90), DefaultGeographicCRS.WGS84)
