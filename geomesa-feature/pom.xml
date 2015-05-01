@@ -78,7 +78,9 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+<!--
                             <shadedArtifactAttached>true</shadedArtifactAttached>
+-->
                             <artifactSet>
                                 <includes>
                                     <include>com.esotericsoftware:kryo-shaded</include>
