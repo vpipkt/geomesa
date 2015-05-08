@@ -53,7 +53,24 @@ trait AccumuloAbstractFeatureSource extends AbstractFeatureSource with Logging w
 
   def getDataStore: AccumuloDataStore = dataStore
 
-  override def getCount(query: Query) = getFeaturesNoCache(query).features().size
+  // The default behavior for getCount is to use Accumulo to look up the number of entries in
+  //  the record table for a feature.
+  //  This approach gives a rough upper count for the size of the query results.
+  //  For Filter.INCLUDE, this is likely pretty close; other all others, it is a lie.
+
+  // Since users may want *actual* counts, there are two ways to force exact counts.
+  //  First, one can set the System property "geomesa.force.count".
+  //  Second, there is an EXACT_COUNT query hint.
+  override def getCount(query: Query) = {
+    val longCount = dataStore.getRecordTableSize(featureName.getLocalPart)
+    val exactCount = query.getHints.containsKey(EXACT_COUNT) || System.getProperty("geomesa.force.count") != null
+
+    longCount match {
+      case _ if longCount == -1 || exactCount => getFeaturesNoCache(query).features().size
+      case _ if longCount > Int.MaxValue      => Int.MaxValue
+      case _                                  => longCount.toInt
+    }
+  }
 
   override def getQueryCapabilities =
     new QueryCapabilities() {
