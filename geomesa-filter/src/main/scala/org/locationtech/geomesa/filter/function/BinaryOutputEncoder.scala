@@ -220,13 +220,13 @@ object BinaryOutputEncoder extends Logging {
         var staged: ValuesToEncode = null
 
         def stageNext = {
-          while(staged == null && latch.getCount > 0) {
+          while(staged == null && !outQ.isEmpty) {
             staged = outQ.poll(1, TimeUnit.SECONDS)
           }
         }
         override def hasNext: Boolean = {
           stageNext
-          staged != null || latch.getCount > 0
+          staged != null
         }
 
         override def next(): ValuesToEncode = {
