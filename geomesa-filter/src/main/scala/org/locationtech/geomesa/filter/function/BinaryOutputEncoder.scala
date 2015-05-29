@@ -203,7 +203,7 @@ object BinaryOutputEncoder extends Logging {
                 val trackId = getTrackId(sf)
                 val label = getLabel(sf)
                 val v = ValuesToEncode(lat, lon, dtg, trackId, label)
-                outQ.add(v)
+                outQ.put(v)
               }
               sf = encoderQ.poll(500, TimeUnit.MILLISECONDS)
             }
@@ -211,7 +211,7 @@ object BinaryOutputEncoder extends Logging {
         })
       }
 
-      fc.features.foreach { sf => encoderQ.add(sf) }
+      fc.features.foreach { sf => encoderQ.put(sf) }
       done.set(true)
       encodingThreads.shutdown()
       outQ.seq
