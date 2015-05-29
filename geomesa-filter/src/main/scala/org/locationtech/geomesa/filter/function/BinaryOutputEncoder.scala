@@ -19,7 +19,7 @@ package org.locationtech.geomesa.filter.function
 import java.io.OutputStream
 import java.util.Date
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{CountDownLatch, Executors, TimeUnit}
 
 import com.google.common.collect.Queues
 import com.typesafe.scalalogging.slf4j.Logging
@@ -192,6 +192,7 @@ object BinaryOutputEncoder extends Logging {
       val numThreads = sys.props.getOrElse("geomesa.encode.threads", "8").toInt
       val encodingThreads = Executors.newFixedThreadPool(numThreads)
       val done = new AtomicBoolean(false)
+      val latch = new CountDownLatch(numThreads)
       (0 until numThreads).foreach { _ =>
         encodingThreads.submit(new Runnable {
           override def run(): Unit = {
@@ -207,6 +208,7 @@ object BinaryOutputEncoder extends Logging {
               }
               sf = encoderQ.poll(500, TimeUnit.MILLISECONDS)
             }
+            latch.countDown()
           }
         })
       }
@@ -214,7 +216,25 @@ object BinaryOutputEncoder extends Logging {
       fc.features.foreach { sf => encoderQ.put(sf) }
       done.set(true)
       encodingThreads.shutdown()
-      outQ.seq
+      new Iterator[ValuesToEncode] {
+        var staged: ValuesToEncode = null
+
+        def stageNext = {
+          while(staged == null && latch.getCount > 0) {
+            staged = outQ.poll(1, TimeUnit.SECONDS)
+          }
+        }
+        override def hasNext: Boolean = {
+          stageNext
+          staged != null || latch.getCount > 0
+        }
+
+        override def next(): ValuesToEncode = {
+          val ret = staged
+          staged = null
+          ret
+        }
+      }
     }
 
     if (sort) {
