@@ -18,7 +18,10 @@ package org.locationtech.geomesa.filter.function
 
 import java.io.OutputStream
 import java.util.Date
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{Executors, TimeUnit}
 
+import com.google.common.collect.Queues
 import com.typesafe.scalalogging.slf4j.Logging
 import com.vividsolutions.jts.geom.{Geometry, LineString, Point}
 import org.geotools.data.simple.SimpleFeatureCollection
@@ -27,7 +30,6 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes.ListAttributeS
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 
 import scala.collection.JavaConversions._
-
 
 object BinaryOutputEncoder extends Logging {
 
@@ -185,14 +187,36 @@ object BinaryOutputEncoder extends Logging {
         }
       }
     } else {
-      fc.features().map { sf =>
-        val (lat, lon) = getLatLon(sf)
-        val dtg = getDtg(sf)
-        val trackId = getTrackId(sf)
-        val label = getLabel(sf)
-        ValuesToEncode(lat, lon, dtg, trackId, label)
+      val encoderQ = Queues.newArrayBlockingQueue[SimpleFeature](32678)
+      val outQ     = Queues.newArrayBlockingQueue[ValuesToEncode](32678)
+      val numThreads = sys.props.getOrElse("geomesa.encode.threads", "8").toInt
+      val encodingThreads = Executors.newFixedThreadPool(numThreads)
+      val done = new AtomicBoolean(false)
+      (0 until numThreads).foreach { _ =>
+        encodingThreads.submit(new Runnable {
+          override def run(): Unit = {
+            var sf = encoderQ.poll(500, TimeUnit.MILLISECONDS)
+            while(sf != null || !done.get()) {
+              if(sf != null) {
+                val (lat, lon) = getLatLon(sf)
+                val dtg = getDtg(sf)
+                val trackId = getTrackId(sf)
+                val label = getLabel(sf)
+                val v = ValuesToEncode(lat, lon, dtg, trackId, label)
+                outQ.add(v)
+              }
+              sf = encoderQ.poll(500, TimeUnit.MILLISECONDS)
+            }
+          }
+        })
       }
+
+      fc.features.foreach { sf => encoderQ.add(sf) }
+      done.set(true)
+      encodingThreads.shutdown()
+      outQ.seq
     }
+
     if (sort) {
       iter.toList.sorted.foreach(encode)
     } else {
