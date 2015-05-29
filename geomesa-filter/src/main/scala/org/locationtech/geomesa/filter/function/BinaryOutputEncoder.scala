@@ -187,8 +187,8 @@ object BinaryOutputEncoder extends Logging {
         }
       }
     } else {
-      val encoderQ = Queues.newArrayBlockingQueue[SimpleFeature](32678)
-      val outQ     = Queues.newArrayBlockingQueue[ValuesToEncode](32678)
+      val encoderQ = Queues.newLinkedBlockingQueue[SimpleFeature]()
+      val outQ     = Queues.newLinkedBlockingQueue[ValuesToEncode]()
       val numThreads = sys.props.getOrElse("geomesa.encode.threads", "8").toInt
       val encodingThreads = Executors.newFixedThreadPool(numThreads)
       val done = new AtomicBoolean(false)
