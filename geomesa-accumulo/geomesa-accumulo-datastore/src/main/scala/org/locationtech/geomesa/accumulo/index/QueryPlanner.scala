@@ -77,14 +77,23 @@ case class QueryPlanner(sft: SimpleFeatureType,
    * Execute a query plan. Split out to allow for easier testing.
    */
   def executePlans(query: Query, strategyPlans: Seq[StrategyPlan], deduplicate: Boolean): SFIter = {
-    val features = strategyPlans.iterator.ciFlatMap { sp =>
-      sp.strategy.execute(sp.plan, acc, log).map(sp.plan.kvsToFeatures)
-    }
+
+    val features: CloseableIterator[SimpleFeature] =
+      if(query.getSortBy != null && query.getSortBy.length > 0) {
+        import scala.concurrent.ExecutionContext.Implicits.global
+        strategyPlans.flatMap { sp =>
+          sp.strategy.execute(sp.plan, acc, log).toList.par.map(sp.plan.kvsToFeatures)
+        }.iterator
+      } else {
+        strategyPlans.iterator.ciFlatMap { sp =>
+          sp.strategy.execute(sp.plan, acc, log).map(sp.plan.kvsToFeatures)
+        }
+      }
 
     val dedupedFeatures = if (deduplicate) new DeDuplicatingIterator(features) else features
 
     val sortedFeatures = if (query.getSortBy != null && query.getSortBy.length > 0) {
-      new LazySortedIterator(dedupedFeatures, query.getSortBy)
+      new LazySortedIterator(dedupedFeatures, query.getSortBy, sft)
     } else {
       dedupedFeatures
     }
@@ -254,8 +263,10 @@ object QueryPlanner {
   }
 }
 
-class LazySortedIterator(features: CloseableIterator[SimpleFeature],
-                         sortBy: Array[SortBy]) extends CloseableIterator[SimpleFeature] {
+class LazySortedIterator(
+  features: CloseableIterator[SimpleFeature],
+  sortBy: Array[SortBy],
+  sft: SimpleFeatureType) extends CloseableIterator[SimpleFeature] {
 
   private lazy val sorted: CloseableIterator[SimpleFeature] = {
 
@@ -263,7 +274,7 @@ class LazySortedIterator(features: CloseableIterator[SimpleFeature],
       case SortBy.NATURAL_ORDER => Ordering.by[SimpleFeature, String](_.getID)
       case SortBy.REVERSE_ORDER => Ordering.by[SimpleFeature, String](_.getID).reverse
       case sb                   =>
-        val prop = sb.getPropertyName.getPropertyName
+        val prop = sft.indexOf(sb.getPropertyName.getPropertyName)
         val ord  = attributeToComparable(prop)
         if (sb.getSortOrder == SortOrder.DESCENDING) ord.reverse else ord
     }
@@ -284,16 +295,16 @@ class LazySortedIterator(features: CloseableIterator[SimpleFeature],
     CloseableIterator(buf.sortWith(comp).iterator)
   }
 
-  def attributeToComparable[T <: Comparable[T]](prop: String)(implicit ct: ClassTag[T]): Ordering[SimpleFeature] =
-    Ordering.by[SimpleFeature, T](_.getAttribute(prop).asInstanceOf[T])(new Ordering[T] {
+  def attributeToComparable[T <: Comparable[T]](idx: Int)(implicit ct: ClassTag[T]): Ordering[SimpleFeature] =
+    Ordering.by[SimpleFeature, T](_.getAttribute(idx).asInstanceOf[T])(new Ordering[T] {
       val evo = implicitly[Ordering[T]]
 
       override def compare(x: T, y: T): Int = {
-        (x, y) match {
+        if(x != null && y != null) evo.compare(x, y)
+        else (x, y) match {
           case (null, null) => 0
           case (null, _)    => -1
           case (_, null)    => 1
-          case (_, _)       => evo.compare(x, y)
         }
       }
     })
@@ -304,4 +315,3 @@ class LazySortedIterator(features: CloseableIterator[SimpleFeature],
 
   override def close(): Unit = {}
 }
-

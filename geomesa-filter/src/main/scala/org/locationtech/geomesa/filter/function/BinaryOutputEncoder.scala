@@ -116,7 +116,7 @@ object BinaryOutputEncoder extends Logging {
             if (isPoint) {
               (f) => pointToXY(f.getDefaultGeometry.asInstanceOf[Point]).swap
             } else {
-              (f) => pointToXY(f.getDefaultGeometry.asInstanceOf[Geometry].getInteriorPoint).swap  
+              (f) => pointToXY(f.getDefaultGeometry.asInstanceOf[Geometry].getInteriorPoint).swap
             }
         }
       }
@@ -185,12 +185,15 @@ object BinaryOutputEncoder extends Logging {
         }
       }
     } else {
-      fc.features().map { sf =>
-        val (lat, lon) = getLatLon(sf)
-        val dtg = getDtg(sf)
-        val trackId = getTrackId(sf)
-        val label = getLabel(sf)
-        ValuesToEncode(lat, lon, dtg, trackId, label)
+      fc.features().flatMap { sf =>
+        if(sf == null) None
+        else {
+          val (lat, lon) = getLatLon(sf)
+          val dtg = getDtg(sf)
+          val trackId = getTrackId(sf)
+          val label = getLabel(sf)
+          Some(ValuesToEncode(lat, lon, dtg, trackId, label))
+        }
       }
     }
     if (sort) {
