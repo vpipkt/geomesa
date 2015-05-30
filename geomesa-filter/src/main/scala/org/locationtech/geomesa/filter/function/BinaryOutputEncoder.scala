@@ -185,15 +185,12 @@ object BinaryOutputEncoder extends Logging {
         }
       }
     } else {
-      fc.features().flatMap { sf =>
-        if(sf == null) None
-        else {
-          val (lat, lon) = getLatLon(sf)
-          val dtg = getDtg(sf)
-          val trackId = getTrackId(sf)
-          val label = getLabel(sf)
-          Some(ValuesToEncode(lat, lon, dtg, trackId, label))
-        }
+      fc.features().map { sf =>
+        val (lat, lon) = getLatLon(sf)
+        val dtg = getDtg(sf)
+        val trackId = getTrackId(sf)
+        val label = getLabel(sf)
+        ValuesToEncode(lat, lon, dtg, trackId, label)
       }
     }
     if (sort) {
