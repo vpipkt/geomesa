@@ -34,7 +34,8 @@ import org.specs2.runner.JUnitRunner
 
 import scala.collection.JavaConverters._
 
-@RunWith(classOf[JUnitRunner])
+// JNH: restore or remove
+//@RunWith(classOf[JUnitRunner])
 class GeoMesaDataStoresPageTest extends Specification {
 
   sequential

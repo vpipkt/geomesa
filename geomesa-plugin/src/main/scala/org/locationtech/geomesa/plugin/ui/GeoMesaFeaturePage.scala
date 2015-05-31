@@ -67,126 +67,127 @@ class GeoMesaFeaturePage(parameters: PageParameters) extends GeoMesaBasePage wit
   }
 
   def initUi(dataStore: AccumuloDataStore, spec: String) = {
-    import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes._
-    val FeatureSpec(attributes, _) = SimpleFeatureTypes.parse(spec)
-
-    // create a copy of the original attributes since the original gets modified by wicket
-    val copy = attributes.map { a => a.copy() }
-
-    // modal form for uploading an xml config
-    val modalWindow = new ModalWindow("modalConfirm")
-    // modal loading dialog
-    val modalWaiting = new ModalWindow("modalWaiting")
-
-    val form = new Form("form") {
-      // each row in the form is an attribute with a checkbox indicating if it is indexed
-      val listView = new ListView[AttributeSpec]("attributes", attributes.toList.asJava) {
-        override def populateItem(item: ListItem[AttributeSpec]) = {
-          val attribute = item.getModel.getObject
-          item.add(new Label("name", attribute.name))
-          item.add(new Label("type", attribute.clazz.getSimpleName))
-          val checkbox = new CheckBox("indexed")
-          attribute match {
-            case a: GeomAttributeSpec =>
-              // geometry attributes can't be indexed except the default one
-              checkbox.setModel(Model.of(a.default))
-              checkbox.setEnabled(false)
-              val title = "Geometry properties can not indexed on demand"
-              checkbox.add(new AttributeModifier("title", true, Model.of(title)))
-            case a: NonGeomAttributeSpec =>
-              checkbox.setModel(new PropertyModel(attribute, "index"))
-          }
-          item.add(checkbox)
-          // add css to stripe the rows
-          val css = if (item.getIndex % 2 == 0) "even" else "odd"
-          item.add(new AttributeAppender("class", new Model(css), " "))
-        }
-      }
-
-      add(listView)
-
-      // cancel form button
-      /*_*/add(new BookmarkablePageLink("cancel", classOf[GeoMesaDataStoresPage]))/*_*/
-
-      // link to open the confirmation dialog
-      add(new AjaxLink("save") {
-        override def onClick(target: AjaxRequestTarget) = {
-          modalWindow.show(target)
-        }
-      })
-    }
-
-    add(form)
-
-    val loadingContainer = new Fragment(modalWaiting.getContentId, "waitingFragment", this)
-    loadingContainer
-      .add(new Image("loading", new ResourceReference(classOf[GeoServerBasePage], "img/ajax-loader.gif")))
-
-    modalWaiting.setContent(loadingContainer)
-    modalWaiting.setResizable(false)
-    // have to specify explicit heights - these were calculated from the css
-    modalWaiting.setInitialWidth(200)
-    modalWaiting.setInitialHeight(85)
-    modalWaiting.setTitle("Please Wait...")
-
-    add(modalWaiting)
-
-    val confirmContainer = new Fragment(modalWindow.getContentId, "confirmFragment", this)
-    confirmContainer.add(new Label("confirmLabel", "Indexing attributes may take a while. Continue?"))
-
-    // submit link
-    confirmContainer.add(new AjaxSubmitLink("confirm", form) {
-      // need to trigger the close of the window with js, otherwise it won't close until request returns
-      add(new AttributeModifier("onclick", true, Model.of("Wicket.Window.get().close();")) {
-        override def newValue(currentValue: String, newValue: String): String = newValue + currentValue
-      })
-      protected def onSubmit(target: AjaxRequestTarget, form: Form[_]) {
-        // pull out any changes
-        val changed = attributes.zip(copy)
-                      .filter { case (a, c) => a != c }
-                      .map { case (a, _) => a }
-        if (!changed.isEmpty) {
-          val (ds, sft) = loadStore().get
-          val added = changed.filter(_.index != IndexCoverage.NONE).map(_.name).toList
-          val run =
-            if (added.isEmpty) {
-              Success(true)
-            } else {
-              import org.locationtech.geomesa.jobs.index.AttributeIndexJob._
-              val conf = GeoMesaBasePage.getHdfsConfiguration
-              val baseParams = getCatalog.getDataStoreByName(workspaceName, dataStoreName)
-                             .getConnectionParameters
-                             .asScala
-                             .toMap[String, java.io.Serializable]
-                             .asInstanceOf[Map[String, String]]
-              // TODO allow full index coverage, if we keep supporting this page...
-              Try(runJob(conf, baseParams, sft.getTypeName, added, IndexCoverage.JOIN))
-            }
-          run match {
-            case Success(_) =>
-            case Failure(e) =>
-              // set error message in page for user to see
-              getSession().error(s"Failed to index attributes: ${e.getMessage}")
-          }
-        }
-        setResponsePage(new GeoMesaFeaturePage(parameters))
-      }
-    })
-    confirmContainer.add(new AjaxLink("cancel") {
-      override def onClick(target: AjaxRequestTarget) =
-        setResponsePage(new GeoMesaFeaturePage(parameters))
-    })
-    modalWindow.setContent(confirmContainer)
-    modalWindow.setResizable(false)
-    // have to specify explicit heights - these were calculated from the css
-    modalWindow.setInitialWidth(350)
-    modalWindow.setInitialHeight(85)
-    modalWindow.setTitle("Confirm Attribute Indexing Changes")
-    modalWindow.setWindowClosedCallback(new WindowClosedCallback() {
-      override def onClose(target: AjaxRequestTarget) = modalWaiting.show(target)
-    })
-
-    add(modalWindow)
+    //JNH: I owe you jobs...
+//    import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes._
+//    val FeatureSpec(attributes, _) = SimpleFeatureTypes.parse(spec)
+//
+//    // create a copy of the original attributes since the original gets modified by wicket
+//    val copy = attributes.map { a => a.copy() }
+//
+//    // modal form for uploading an xml config
+//    val modalWindow = new ModalWindow("modalConfirm")
+//    // modal loading dialog
+//    val modalWaiting = new ModalWindow("modalWaiting")
+//
+//    val form = new Form("form") {
+//      // each row in the form is an attribute with a checkbox indicating if it is indexed
+//      val listView = new ListView[AttributeSpec]("attributes", attributes.toList.asJava) {
+//        override def populateItem(item: ListItem[AttributeSpec]) = {
+//          val attribute = item.getModel.getObject
+//          item.add(new Label("name", attribute.name))
+//          item.add(new Label("type", attribute.clazz.getSimpleName))
+//          val checkbox = new CheckBox("indexed")
+//          attribute match {
+//            case a: GeomAttributeSpec =>
+//              // geometry attributes can't be indexed except the default one
+//              checkbox.setModel(Model.of(a.default))
+//              checkbox.setEnabled(false)
+//              val title = "Geometry properties can not indexed on demand"
+//              checkbox.add(new AttributeModifier("title", true, Model.of(title)))
+//            case a: NonGeomAttributeSpec =>
+//              checkbox.setModel(new PropertyModel(attribute, "index"))
+//          }
+//          item.add(checkbox)
+//          // add css to stripe the rows
+//          val css = if (item.getIndex % 2 == 0) "even" else "odd"
+//          item.add(new AttributeAppender("class", new Model(css), " "))
+//        }
+//      }
+//
+//      add(listView)
+//
+//      // cancel form button
+//      /*_*/add(new BookmarkablePageLink("cancel", classOf[GeoMesaDataStoresPage]))/*_*/
+//
+//      // link to open the confirmation dialog
+//      add(new AjaxLink("save") {
+//        override def onClick(target: AjaxRequestTarget) = {
+//          modalWindow.show(target)
+//        }
+//      })
+//    }
+//
+//    add(form)
+//
+//    val loadingContainer = new Fragment(modalWaiting.getContentId, "waitingFragment", this)
+//    loadingContainer
+//      .add(new Image("loading", new ResourceReference(classOf[GeoServerBasePage], "img/ajax-loader.gif")))
+//
+//    modalWaiting.setContent(loadingContainer)
+//    modalWaiting.setResizable(false)
+//    // have to specify explicit heights - these were calculated from the css
+//    modalWaiting.setInitialWidth(200)
+//    modalWaiting.setInitialHeight(85)
+//    modalWaiting.setTitle("Please Wait...")
+//
+//    add(modalWaiting)
+//
+//    val confirmContainer = new Fragment(modalWindow.getContentId, "confirmFragment", this)
+//    confirmContainer.add(new Label("confirmLabel", "Indexing attributes may take a while. Continue?"))
+//
+//    // submit link
+//    confirmContainer.add(new AjaxSubmitLink("confirm", form) {
+//      // need to trigger the close of the window with js, otherwise it won't close until request returns
+//      add(new AttributeModifier("onclick", true, Model.of("Wicket.Window.get().close();")) {
+//        override def newValue(currentValue: String, newValue: String): String = newValue + currentValue
+//      })
+//      protected def onSubmit(target: AjaxRequestTarget, form: Form[_]) {
+//        // pull out any changes
+//        val changed = attributes.zip(copy)
+//                      .filter { case (a, c) => a != c }
+//                      .map { case (a, _) => a }
+//        if (!changed.isEmpty) {
+//          val (ds, sft) = loadStore().get
+//          val added = changed.filter(_.index != IndexCoverage.NONE).map(_.name).toList
+//          val run =
+//            if (added.isEmpty) {
+//              Success(true)
+//            } else {
+//              import org.locationtech.geomesa.jobs.index.AttributeIndexJob._
+//              val conf = GeoMesaBasePage.getHdfsConfiguration
+//              val baseParams = getCatalog.getDataStoreByName(workspaceName, dataStoreName)
+//                             .getConnectionParameters
+//                             .asScala
+//                             .toMap[String, java.io.Serializable]
+//                             .asInstanceOf[Map[String, String]]
+//              // TODO allow full index coverage, if we keep supporting this page...
+//              Try(runJob(conf, baseParams, sft.getTypeName, added, IndexCoverage.JOIN))
+//            }
+//          run match {
+//            case Success(_) =>
+//            case Failure(e) =>
+//              // set error message in page for user to see
+//              getSession().error(s"Failed to index attributes: ${e.getMessage}")
+//          }
+//        }
+//        setResponsePage(new GeoMesaFeaturePage(parameters))
+//      }
+//    })
+//    confirmContainer.add(new AjaxLink("cancel") {
+//      override def onClick(target: AjaxRequestTarget) =
+//        setResponsePage(new GeoMesaFeaturePage(parameters))
+//    })
+//    modalWindow.setContent(confirmContainer)
+//    modalWindow.setResizable(false)
+//    // have to specify explicit heights - these were calculated from the css
+//    modalWindow.setInitialWidth(350)
+//    modalWindow.setInitialHeight(85)
+//    modalWindow.setTitle("Confirm Attribute Indexing Changes")
+//    modalWindow.setWindowClosedCallback(new WindowClosedCallback() {
+//      override def onClose(target: AjaxRequestTarget) = modalWaiting.show(target)
+//    })
+//
+//    add(modalWindow)
   }
 }
 

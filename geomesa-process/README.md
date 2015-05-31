@@ -13,5 +13,5 @@ The following analytic processes are available and optimized on GeoMesa data sto
 ## Installation
 
 To install the GeoMesa processes, first deploy the main GeoMesa GeoServer plugin in 
- `${GEOSERVER_HOME}/WEB-INF/lib`.  Then copy the `geomesa-process-accumulo1.5-${VERSION}.jar` into the
+ `${GEOSERVER_HOME}/WEB-INF/lib`.  Then copy the `geomesa-process-accumulo1.7-${VERSION}.jar` into the
  same directory.

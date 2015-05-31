@@ -20,8 +20,11 @@ import java.util
 import java.util.Map.Entry
 import java.util.concurrent.TimeUnit
 
+import org.apache.accumulo.core.Constants
+import org.apache.accumulo.core.client.IteratorSetting.Column
 import org.apache.accumulo.core.client.{BatchScanner, IteratorSetting, Scanner}
 import org.apache.accumulo.core.data.{Key, Range, Value}
+import org.apache.accumulo.core.security.Authorizations
 import org.apache.hadoop.io.Text
 import org.locationtech.geomesa.core.index.ExplainerOutputType
 
@@ -30,6 +33,10 @@ class ExplainingBatchScanner(output: ExplainerOutputType) extends ExplainingScan
 }
 
 class ExplainingScanner(output: ExplainerOutputType) extends Scanner {
+  var readaheadThreshold = Constants.SCANNER_DEFAULT_READAHEAD_THRESHOLD
+  override def getReadaheadThreshold: Long = readaheadThreshold
+  override def setReadaheadThreshold(newThreshold: Long): Unit =
+    readaheadThreshold = newThreshold
 
   override def setTimeout(timeout: Long, timeUnit: TimeUnit): Unit = output(s"setTimeout($timeout, $timeUnit)")
 
@@ -75,4 +82,8 @@ class ExplainingScanner(output: ExplainerOutputType) extends Scanner {
   override def enableIsolation(): Unit = {}
 
   override def disableIsolation(): Unit = {}
+
+  override def fetchColumn(column: Column): Unit = ???
+
+  override def getAuthorizations: Authorizations = ???
 }

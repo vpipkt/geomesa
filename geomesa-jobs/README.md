@@ -72,7 +72,7 @@ GeoMesa provides the ability to analyze your data through histograms.
 The job can be invoked through yarn as follows (jar version may vary slightly):
 
 ```shell
-geomesa> yarn jar geomesa-jobs/target/geomesa-jobs-accumulo1.5-1.0.0-shaded.jar \
+geomesa> yarn jar geomesa-jobs/target/geomesa-jobs-accumulo1.7-1.0.0-shaded.jar \
     com.twitter.scalding.Tool \
     org.locationtech.geomesa.jobs.analytics.HistogramJob \
     --hdfs \
@@ -111,7 +111,7 @@ index additional attributes, you can use the attribute indexing job. You only ne
 The job can be invoked through yarn as follows (jar version may vary slightly):
 
 ```shell
-geomesa> yarn jar geomesa-jobs/target/geomesa-jobs-accumulo1.5-1.0.0-shaded.jar \
+geomesa> yarn jar geomesa-jobs/target/geomesa-jobs-accumulo1.7-1.0.0-shaded.jar \
     com.twitter.scalding.Tool \
     org.locationtech.geomesa.jobs.index.AttributeIndexJob \
     --hdfs \
@@ -136,7 +136,7 @@ to update to the new version, you may use the SortedIndexUpdateJob.
 The job can be invoked through yarn as follows (jar version may vary slightly):
 
 ```shell
-yarn jar geomesa-jobs/target/geomesa-jobs-accumulo1.5-1.0.0-shaded.jar \
+yarn jar geomesa-jobs/target/geomesa-jobs-accumulo1.7-1.0.0-shaded.jar \
     com.twitter.scalding.Tool \
     org.locationtech.geomesa.jobs.index.SortedIndexUpdateJob \
     --hdfs \

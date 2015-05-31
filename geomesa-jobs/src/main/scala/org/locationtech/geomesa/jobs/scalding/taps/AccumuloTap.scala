@@ -68,7 +68,7 @@ case class AccumuloTap(readOrWrite: AccessMode, scheme: AccumuloScheme) extends 
   override def deleteResource(conf: JobConf): Boolean =
     Try(tableOps.delete(options.table)) match {
       case Success(_) => true
-      case Failure(e) =>
+      case Failure(e) =>                obs - [Accumulo 1.7.x] ................... FAILURE [7.237s]
         logger.error(s"Error deleting table ${options.table}", e)
         false
     }
