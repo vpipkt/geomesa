@@ -188,6 +188,7 @@ class Z3IdxStrategyTest extends Specification with TestWithDataStore {
           " AND dtg during 2010-05-07T00:00:00.000Z/2010-05-07T12:00:00.000Z"
       val query = getQuery(filter, None)
       query.getHints.put(BIN_TRACK_KEY, "name")
+      query.getHints.put(BIN_SORT_KEY, true)
       query.getHints.put(BIN_BATCH_SIZE_KEY, 100)
       val qps = getQueryPlans(query)
       qps must haveSize(1)

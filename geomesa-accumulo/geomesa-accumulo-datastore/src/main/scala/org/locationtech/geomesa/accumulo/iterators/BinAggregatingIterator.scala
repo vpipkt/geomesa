@@ -535,7 +535,7 @@ object BinSorter extends Logging {
 
     if (length < INSERTION_SORT_THRESHOLD) {
       // Use insertion sort on tiny arrays
-      if (leftmost) {
+//      if (leftmost) {
         // Traditional (without sentinel) insertion sort is used in case of the leftmost part
         var i = left + BIN_SIZE
         while (i <= right) {
@@ -551,56 +551,59 @@ object BinSorter extends Logging {
           }
           i += BIN_SIZE
         }
-      } else {
-        // optimized insertions sort when we know we have 'sentinel' elements to the left
-        /*
-         * Every element from adjoining part plays the role
-         * of sentinel, therefore this allows us to avoid the
-         * left range check on each iteration. Moreover, we use
-         * the more optimized algorithm, so called pair insertion
-         * sort, which is faster (in the context of Quicksort)
-         * than traditional implementation of insertion sort.
-         */
-        // Skip the longest ascending sequence
-        var i = left
-        do {
-          if (i >= right) {
-            return
-          }
-        } while ({ i += BIN_SIZE; compare(bytes, i , bytes, i - BIN_SIZE) >= 0 })
-
-        var k = i
-        val a1 = Array.ofDim[Byte](BIN_SIZE)
-        val a2 = Array.ofDim[Byte](BIN_SIZE)
-        while ({ i += BIN_SIZE; i } <= right) {
-          if (compare(bytes, k, bytes, i) < 0) {
-            System.arraycopy(bytes, k, a2, 0, BIN_SIZE)
-            System.arraycopy(bytes, i, a1, 0, BIN_SIZE)
-          } else {
-            System.arraycopy(bytes, k, a1, 0, BIN_SIZE)
-            System.arraycopy(bytes, i, a2, 0, BIN_SIZE)
-          }
-          while ({ k -= BIN_SIZE; compare(a1, 0, bytes, k) < 0 }) {
-            System.arraycopy(bytes, k, bytes, k + 2 * BIN_SIZE, BIN_SIZE)
-          }
-          k += BIN_SIZE
-          System.arraycopy(a1, 0, bytes, k + BIN_SIZE, BIN_SIZE)
-          while ({ k -= BIN_SIZE; compare(a2, 0, bytes, k) < 0 }) {
-            System.arraycopy(bytes, k, bytes, k + BIN_SIZE, BIN_SIZE)
-          }
-          System.arraycopy(a2, 0, bytes, k + BIN_SIZE, BIN_SIZE)
-
-          i += BIN_SIZE
-          k = i
-        }
-
-        var j = right
-        val last = getThreadLocalChunk(bytes, j)
-        while ({ j -= BIN_SIZE; compare(last, 0, bytes, j) < 0 }) {
-          System.arraycopy(bytes, j, bytes, j + BIN_SIZE, BIN_SIZE)
-        }
-        System.arraycopy(last, 0, bytes, j + BIN_SIZE, BIN_SIZE)
-      }
+      // TODO get optimized leftmost working
+//      } else {
+//        // optimized insertions sort when we know we have 'sentinel' elements to the left
+//        /*
+//         * Every element from adjoining part plays the role
+//         * of sentinel, therefore this allows us to avoid the
+//         * left range check on each iteration. Moreover, we use
+//         * the more optimized algorithm, so called pair insertion
+//         * sort, which is faster (in the context of Quicksort)
+//         * than traditional implementation of insertion sort.
+//         */
+//        // Skip the longest ascending sequence
+//        var i = left
+//        do {
+//          if (i >= right) {
+//            return
+//          }
+//        } while ({ i += BIN_SIZE; compare(bytes, i , bytes, i - BIN_SIZE) >= 0 })
+//
+//        var k = i
+//        val a1 = Array.ofDim[Byte](BIN_SIZE)
+//        val a2 = Array.ofDim[Byte](BIN_SIZE)
+//        while ({ i += BIN_SIZE; i } <= right) {
+//          if (compare(bytes, k, bytes, i) < 0) {
+//            System.arraycopy(bytes, k, a2, 0, BIN_SIZE)
+//            System.arraycopy(bytes, i, a1, 0, BIN_SIZE)
+//          } else {
+//            System.arraycopy(bytes, k, a1, 0, BIN_SIZE)
+//            System.arraycopy(bytes, i, a2, 0, BIN_SIZE)
+//          }
+//
+//          while ({ k -= BIN_SIZE; compare(a1, 0, bytes, k) < 0 }) {
+//            System.arraycopy(bytes, k, bytes, k + 2 * BIN_SIZE, BIN_SIZE)
+//          }
+//          k += BIN_SIZE
+//          System.arraycopy(a1, 0, bytes, k + BIN_SIZE, BIN_SIZE)
+//
+//          while ({ k -= BIN_SIZE; compare(a2, 0, bytes, k) < 0 }) {
+//            System.arraycopy(bytes, k, bytes, k + BIN_SIZE, BIN_SIZE)
+//          }
+//          System.arraycopy(a2, 0, bytes, k + BIN_SIZE, BIN_SIZE)
+//
+//          i += BIN_SIZE
+//          k = i
+//        }
+//
+//        var j = right
+//        val last = getThreadLocalChunk(bytes, j)
+//        while ({ j -= BIN_SIZE; compare(last, 0, bytes, j) < 0 }) {
+//          System.arraycopy(bytes, j, bytes, j + BIN_SIZE, BIN_SIZE)
+//        }
+//        System.arraycopy(last, 0, bytes, j + BIN_SIZE, BIN_SIZE)
+//      }
       return
     }
 
