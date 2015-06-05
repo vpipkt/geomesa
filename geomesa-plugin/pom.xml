@@ -86,7 +86,7 @@
             <artifactId>avro</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.typesafe</groupId>
+            <groupId>com.typesafe.scala-logging</groupId>
             <artifactId>scala-logging-slf4j_2.11</artifactId>
         </dependency>
 

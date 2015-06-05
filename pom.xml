@@ -622,7 +622,7 @@
                 <version>2.3.0</version>
             </dependency>
             <dependency>
-                <groupId>com.typesafe</groupId>
+                <groupId>com.typesafe.scala-logging</groupId>
                 <artifactId>scala-logging-slf4j_2.11</artifactId>
                 <version>${scala-logging.version}</version>
             </dependency>

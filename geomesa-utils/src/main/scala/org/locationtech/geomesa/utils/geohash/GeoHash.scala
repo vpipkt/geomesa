@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.utils.geohash
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.Logger
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory, Point, PrecisionModel}
 
 import scala.collection.BitSet
