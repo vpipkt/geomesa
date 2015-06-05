@@ -41,7 +41,7 @@ class Z3SFC extends SpaceFillingCurve[Z3] {
                       maxRecurse: Int): Seq[(Long, Long)] = {
     val lz = Z3(normLon(lx), normLat(ly), normT(lt))
     val uz = Z3(normLon(ux), normLat(uy), normT(ut))
-    Z3.zranges(lz, uz, maxRecurse)
+    Z3.zranges(lz, uz)
   }
 
   override def invert(z: Z3): (Double, Double, Long) = {

@@ -96,11 +96,46 @@ object Z3 {
     wiped | (split(p) << dim)
   }
 
+  // JNH
+  def c(l: Long, u: Long) = {
+    def comp(l: Long, u: Long, b: Int): Boolean = {
+      (l >>> b) == (u >>> b)
+    }
+
+    var b = 63
+    while ( comp(l, u, b) ) { b -= 1 }
+    b
+  }
+
+  def findMin(l: Long, u: Long) = {
+    val shift = c(l, u)
+    (l >>> shift) << shift
+  }
+
+  def findMax(l: Long, u: Long) = {
+    val shift = c(l, u)
+    ((u >>> shift) + 1) << shift
+  }
+
+
+  def zranges(min: Z3, max: Z3): Seq[(Long, Long)] = {
+    val prefix = findMin(min.z, max.z)
+
+    //val max2   = findMax(min.z, max.z)
+    // val depth = (max2-prefix).toBinaryString.size
+    // JNH: We *should* be able to statically calculate a reasonable maxRecursion depth.
+    val maxRecurse = 8 // JNH
+
+    val offset = math.min(c(min.z, max.z)+3,63)
+    println(s"calling zranges w/ $min $max $maxRecurse $prefix $offset")
+    zranges(min, max, maxRecurse, prefix, offset)
+  }
+
   /**
    * Recurse down the oct-tree and report all z-ranges which are contained
    * in the cube defined by the min and max points
    */
-  def zranges(min: Z3, max: Z3, maxRecurse: Int): Seq[(Long, Long)] = {
+  def zranges(min: Z3, max: Z3, maxRecurse: Int, prefix: Long, offset: Int): Seq[(Long, Long)] = {
     var mq: MergeQueue = new MergeQueue
     val sr = Z3Range(min, max)
 
@@ -135,8 +170,8 @@ object Z3 {
       }
     }
 
-    val prefix: Long = 0
-    val offset = MAX_BITS * MAX_DIM
+    //val prefix: Long = 0
+    //val offset = MAX_BITS * MAX_DIM
     zranges(prefix, offset, 0, 0) // the entire space
     mq.toSeq
   }

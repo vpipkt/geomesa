@@ -162,7 +162,7 @@ class Z3Test extends Specification {
     "calculate ranges" >> {
       val min = Z3(2, 2, 0)
       val max = Z3(3, 6, 0)
-      val ranges = Z3.zranges(min, max, 100)
+      val ranges = Z3.zranges(min, max)
       ranges must haveLength(3)
       ranges must containTheSameElementsAs(Seq((Z3(2, 2, 0).z, Z3(3, 3, 0).z),
         (Z3(2, 4, 0).z, Z3(3, 5, 0).z), (Z3(2, 6, 0).z, Z3(3, 6, 0).z)))
