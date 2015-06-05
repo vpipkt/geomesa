@@ -18,7 +18,7 @@ package org.locationtech.geomesa.accumulo.iterators
 
 import java.util.{Collection => JCollection}
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.geotools.data.{DataUtilities, Query}
 import org.geotools.process.vector.TransformProcess
 import org.locationtech.geomesa.accumulo._
@@ -43,7 +43,7 @@ case object RecordJoinIterator extends IteratorChoice
 
 case class IteratorConfig(iterator: IteratorChoice, hasTransformOrFilter: Boolean, transformCoversFilter: Boolean)
 
-object IteratorTrigger extends Logging {
+object IteratorTrigger extends LazyLogging {
 
   /**
    * Convenience class for inspecting simple feature types

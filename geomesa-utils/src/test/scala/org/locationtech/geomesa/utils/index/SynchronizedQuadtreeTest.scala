@@ -20,7 +20,7 @@ import java.util.ConcurrentModificationException
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.Lock
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.index.quadtree.Quadtree
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.utils.text.WKTUtils
@@ -30,7 +30,7 @@ import org.specs2.runner.JUnitRunner
 import scala.util.{Random, Try}
 
 @RunWith(classOf[JUnitRunner])
-class SynchronizedQuadtreeTest extends Specification with Logging {
+class SynchronizedQuadtreeTest extends Specification with LazyLogging {
 
   "SynchronizedQuadtree" should {
     "be thread safe" in {

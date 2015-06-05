@@ -1,7 +1,7 @@
 package org.locationtech.geomesa.accumulo.index
 
 import com.google.common.primitives.{Bytes, Longs, Shorts}
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom.{Geometry, GeometryCollection}
 import org.apache.accumulo.core.client.IteratorSetting
 import org.apache.accumulo.core.data.Range
@@ -20,7 +20,7 @@ import org.opengis.filter.spatial.BinarySpatialOperator
 
 import scala.collection.JavaConversions._
 
-class Z3IdxStrategy extends Strategy with Logging with IndexFilterHelpers  {
+class Z3IdxStrategy extends Strategy with LazyLogging with IndexFilterHelpers  {
 
   import FilterHelper._
   import Z3IdxStrategy._

@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.accumulo.index
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom.{Geometry, Polygon}
 import org.apache.accumulo.core.client.{BatchScanner, IteratorSetting, Scanner}
 import org.geotools.data.Query
@@ -37,7 +37,7 @@ import org.opengis.filter.Filter
 import scala.collection.JavaConversions._
 import scala.util.Random
 
-trait Strategy extends Logging {
+trait Strategy extends LazyLogging {
 
   /**
    * Plans the query - strategy implementations need to define this

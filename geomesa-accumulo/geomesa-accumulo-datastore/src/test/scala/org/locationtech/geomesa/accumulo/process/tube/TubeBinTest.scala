@@ -17,7 +17,7 @@
 package org.locationtech.geomesa.accumulo.process.tube
 
 import com.vividsolutions.jts.geom.GeometryCollection
-import org.apache.log4j.Logger
+import org.apache.log4j.LazyLogging
 import org.geotools.data.collection.ListFeatureCollection
 import org.geotools.factory.Hints
 import org.geotools.feature.DefaultFeatureCollection
@@ -38,7 +38,7 @@ class TubeBinTest extends Specification {
 
   sequential
 
-  private val log = Logger.getLogger(classOf[TubeBinTest])
+  private val log = LazyLogging.getLazyLogging(classOf[TubeBinTest])
 
   val geotimeAttributes = org.locationtech.geomesa.accumulo.index.spec
 

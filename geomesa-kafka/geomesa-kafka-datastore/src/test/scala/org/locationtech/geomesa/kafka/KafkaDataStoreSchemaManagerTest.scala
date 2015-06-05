@@ -17,7 +17,7 @@ package org.locationtech.geomesa.kafka
 
 import java.util.UUID
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import kafka.admin.AdminUtils
 import kafka.utils.{ZkUtils, ZKStringSerializer}
 import org.I0Itec.zkclient.ZkClient
@@ -366,7 +366,7 @@ class KafkaDataStoreSchemaManagerTest
 
 class TestDataStore(override val zookeepers: String,
                     override val zkPath: String)
-  extends ContentDataStore with KafkaDataStoreSchemaManager with Logging {
+  extends ContentDataStore with KafkaDataStoreSchemaManager with LazyLogging {
 
   override val partitions: Int = 1
   override val replication: Int = 1
@@ -379,7 +379,7 @@ class TestDataStore(override val zookeepers: String,
   override def createTypeNames() = getNames()
 }
 
-class ZkContext(val zkConnect: String) extends After with Logging {
+class ZkContext(val zkConnect: String) extends After with LazyLogging {
 
   val schema = "name:String,age:Int,dtg:Date,*geom:Point:srid=4326"
   lazy val replayConfig = new ReplayConfig(new Instant(123L), new Instant(223L), new Duration(5L))

@@ -21,7 +21,7 @@ import java.io.Serializable
 import java.{util => ju}
 
 import com.google.common.cache.{CacheBuilder, CacheLoader}
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.geotools.data.DataAccessFactory.Param
 import org.geotools.data.store.{ContentDataStore, ContentEntry, ContentFeatureSource}
 import org.geotools.data.{DataStore, DataStoreFactorySpi}
@@ -34,7 +34,7 @@ class KafkaDataStore(override val zookeepers: String,
                      fsFactory: FeatureSourceFactory)
   extends ContentDataStore
   with KafkaDataStoreSchemaManager
-  with Logging {
+  with LazyLogging {
 
   kds =>
 

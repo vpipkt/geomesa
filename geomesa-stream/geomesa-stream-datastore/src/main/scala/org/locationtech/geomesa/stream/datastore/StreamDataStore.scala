@@ -73,7 +73,7 @@ class StreamDataStore(source: SimpleFeatureStreamSource, timeout: Int) extends C
                 try {
                   l.onNext(sf)
                 } catch {
-                  case t: Throwable => getLogger.log(Level.WARNING, "Unable to notify listener", t)
+                  case t: Throwable => getLazyLogging.log(Level.WARNING, "Unable to notify listener", t)
                 }
               }
             }

@@ -18,7 +18,7 @@ package org.locationtech.geomesa.accumulo.filter
 
 import java.util.Date
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom.Coordinate
 import org.geotools.data.simple.{SimpleFeatureSource, SimpleFeatureStore}
 import org.geotools.data.{DataStoreFinder, Query}
@@ -172,7 +172,7 @@ class IdQueryTest extends Specification {
   }
 }
 
-object FilterTester extends Logging {
+object FilterTester extends LazyLogging {
   val mediumDataFeatures: Seq[SimpleFeature] = mediumData.map(createSF)
   val sft = mediumDataFeatures.head.getFeatureType
 
@@ -206,7 +206,7 @@ object FilterTester extends Logging {
 
 import org.locationtech.geomesa.accumulo.filter.FilterTester._
 
-trait FilterTester extends Specification with Logging {
+trait FilterTester extends Specification with LazyLogging {
   val fs = fs1
 
   def filters: Seq[String]

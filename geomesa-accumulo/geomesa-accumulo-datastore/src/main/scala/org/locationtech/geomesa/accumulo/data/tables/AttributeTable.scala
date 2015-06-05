@@ -19,7 +19,7 @@ package org.locationtech.geomesa.accumulo.data.tables
 
 import java.util.{Collection => JCollection, Date, Locale, Map => JMap}
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.data.Mutation
 import org.apache.hadoop.io.Text
 import org.calrissian.mango.types.{LexiTypeEncoders, SimpleTypeEncoders, TypeEncoder}
@@ -39,7 +39,7 @@ import scala.util.{Failure, Success, Try}
 /**
  * Contains logic for converting between accumulo and geotools for the attribute index
  */
-object AttributeTable extends GeoMesaTable with Logging {
+object AttributeTable extends GeoMesaTable with LazyLogging {
 
   override def supports(sft: SimpleFeatureType) =
     SimpleFeatureTypes.getSecondaryIndexedAttributes(sft).nonEmpty

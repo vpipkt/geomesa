@@ -17,7 +17,7 @@
 package org.locationtech.geomesa.accumulo.data
 
 import com.google.common.cache.{CacheBuilder, CacheLoader}
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.geotools.data._
 import org.geotools.data.simple.{SimpleFeatureCollection, SimpleFeatureIterator, SimpleFeatureSource}
 import org.geotools.feature.collection.SortedSimpleFeatureCollection
@@ -30,7 +30,7 @@ import org.locationtech.geomesa.accumulo.process.query.QueryVisitor
 import org.locationtech.geomesa.accumulo.process.temporalDensity.TemporalDensityVisitor
 import org.locationtech.geomesa.accumulo.process.tube.TubeVisitor
 import org.locationtech.geomesa.accumulo.process.unique.AttributeVisitor
-import org.locationtech.geomesa.accumulo.util.TryLoggingFailure
+import org.locationtech.geomesa.accumulo.util.TryLazyLoggingFailure
 import org.opengis.feature.FeatureVisitor
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
@@ -38,7 +38,7 @@ import org.opengis.filter.Filter
 import org.opengis.filter.sort.SortBy
 import org.opengis.util.ProgressListener
 
-trait AccumuloAbstractFeatureSource extends AbstractFeatureSource with Logging with TryLoggingFailure {
+trait AccumuloAbstractFeatureSource extends AbstractFeatureSource with LazyLogging with TryLazyLoggingFailure {
   self =>
 
   import org.locationtech.geomesa.utils.geotools.Conversions._
@@ -92,7 +92,7 @@ trait AccumuloAbstractFeatureSource extends AbstractFeatureSource with Logging w
   }
 
   override def getFeatures(query: Query): SimpleFeatureCollection =
-    tryLoggingFailures(getFeaturesNoCache(query))
+    tryLazyLoggingFailures(getFeaturesNoCache(query))
 
   override def getFeatures(filter: Filter): SimpleFeatureCollection =
     getFeatures(new Query(getSchema().getTypeName, filter))

@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.plugin.ui
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.hadoop.conf.Configuration
 import org.apache.wicket.ajax.AjaxRequestTarget
 import org.apache.wicket.ajax.markup.html.AjaxLink
@@ -36,7 +36,7 @@ import org.locationtech.geomesa.plugin.ui.components.FileUploadComponent
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-class GeoMesaConfigPage extends GeoMesaBasePage with Logging {
+class GeoMesaConfigPage extends GeoMesaBasePage with LazyLogging {
 
   import org.locationtech.geomesa.plugin.properties._
 

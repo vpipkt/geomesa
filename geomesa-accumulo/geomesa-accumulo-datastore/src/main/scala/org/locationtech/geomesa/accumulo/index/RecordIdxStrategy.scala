@@ -18,7 +18,7 @@ package org.locationtech.geomesa.accumulo.index
 
 import java.util
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.data
 import org.geotools.data.Query
 import org.locationtech.geomesa.accumulo.data.AccumuloConnectorCreator
@@ -58,7 +58,7 @@ object RecordIdxStrategy extends StrategyProvider {
 
 }
 
-class RecordIdxStrategy extends Strategy with Logging {
+class RecordIdxStrategy extends Strategy with LazyLogging {
 
   override def getQueryPlans(query: Query, queryPlanner: QueryPlanner, output: ExplainerOutputType) = {
 

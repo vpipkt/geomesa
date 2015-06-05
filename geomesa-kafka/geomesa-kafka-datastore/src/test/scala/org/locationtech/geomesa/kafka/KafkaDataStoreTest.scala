@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.kafka
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom.Coordinate
 import org.geotools.data._
 import org.geotools.data.simple.SimpleFeatureStore
@@ -33,7 +33,7 @@ import org.specs2.runner.JUnitRunner
 import scala.collection.JavaConversions._
 
 @RunWith(classOf[JUnitRunner])
-class KafkaDataStoreTest extends Specification with HasEmbeddedKafka with Logging {
+class KafkaDataStoreTest extends Specification with HasEmbeddedKafka with LazyLogging {
 
   sequential // this doesn't really need to be sequential, but we're trying to reduce zk load
 

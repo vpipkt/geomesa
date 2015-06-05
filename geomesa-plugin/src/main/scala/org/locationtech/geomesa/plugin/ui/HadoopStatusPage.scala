@@ -4,7 +4,7 @@ import org.apache.hadoop.mapred.JobClient
 import org.apache.wicket.markup.html.WebMarkupContainer
 import org.apache.wicket.markup.html.basic.Label
 import org.apache.wicket.model.Model
-import org.slf4j.LoggerFactory
+import org.slf4j.LazyLoggingFactory
 
 import scala.util.{Failure, Success, Try}
 
@@ -85,7 +85,7 @@ class HadoopStatusPage extends GeoMesaBasePage {
         activeJobsModel.setObject(activeJobsString)
       case Failure(e) =>
         // we have to get a logger instance each time since the page has to be serializable
-        LoggerFactory.getLogger(classOf[HadoopStatusPage]).error("Error retrieving hadoop status", e)
+        LazyLoggingFactory.getLazyLogging(classOf[HadoopStatusPage]).error("Error retrieving hadoop status", e)
         errorMessageModel.setObject(s"Hadoop configuration error: ${e.getMessage}")
     }
   }

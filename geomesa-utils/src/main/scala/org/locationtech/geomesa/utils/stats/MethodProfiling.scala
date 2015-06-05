@@ -20,7 +20,7 @@ package org.locationtech.geomesa.utils.stats
 
 import java.util.concurrent.atomic.AtomicLong
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 
 trait MethodProfiling {
 
@@ -169,7 +169,7 @@ class TimingsImpl extends Timings {
  *
  * @param moduloToLog
  */
-class AutoLoggingTimings(moduloToLog: Int = 1000) extends TimingsImpl with Logging {
+class AutoLazyLoggingTimings(moduloToLog: Int = 1000) extends TimingsImpl with LazyLogging {
 
   val count = new AtomicLong()
 

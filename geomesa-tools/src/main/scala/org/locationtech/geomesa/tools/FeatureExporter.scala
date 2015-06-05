@@ -19,7 +19,7 @@ import java.io._
 import java.text.SimpleDateFormat
 import java.util.{Date, TimeZone}
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.commons.lang.StringEscapeUtils
 import org.geotools.GML
 import org.geotools.GML.Version
@@ -104,7 +104,7 @@ object ShapefileExport {
 }
 
 class DelimitedExport(writer: Writer, format: String, attributes: Option[String])
-    extends FeatureExporter with Logging {
+    extends FeatureExporter with LazyLogging {
 
   val delimiter = format match {
    case Formats.CSV => ","

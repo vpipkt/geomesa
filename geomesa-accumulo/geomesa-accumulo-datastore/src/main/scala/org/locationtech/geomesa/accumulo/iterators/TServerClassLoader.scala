@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.accumulo.iterators
 
-import com.typesafe.scalalogging.slf4j.Logger
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.commons.vfs2.impl.VFSClassLoader
 import org.geotools.factory.GeoTools
 
@@ -26,7 +26,7 @@ object TServerClassLoader {
     override def initialValue(): Boolean = false
   }
 
-  def initClassLoader(log: Logger) =
+  def initClassLoader(log: LazyLogging) =
     if(!initialized.get()) {
       try {
         log.trace("Initializing classLoader")

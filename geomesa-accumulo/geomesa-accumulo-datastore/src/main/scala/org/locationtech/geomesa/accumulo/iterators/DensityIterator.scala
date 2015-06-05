@@ -21,7 +21,7 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInputStream, Da
 import java.util.{Map => JMap}
 
 import com.google.common.collect._
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom._
 import org.apache.accumulo.core.client.IteratorSetting
 import org.apache.accumulo.core.data.{Key, Value}
@@ -139,7 +139,7 @@ class DensityIterator(other: DensityIterator, env: IteratorEnvironment)
   }
 }
 
-object DensityIterator extends Logging {
+object DensityIterator extends LazyLogging {
 
   val BBOX_KEY = "geomesa.density.bbox"
   val BOUNDS_KEY = "geomesa.density.bounds"

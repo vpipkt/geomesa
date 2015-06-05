@@ -18,7 +18,7 @@ package org.locationtech.geomesa.accumulo.process.temporalDensity
 
 import java.util.Date
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.geotools.data.Query
 import org.geotools.data.simple.{SimpleFeatureCollection, SimpleFeatureSource}
 import org.geotools.data.store.ReTypingFeatureCollection
@@ -36,7 +36,7 @@ import org.opengis.feature.simple.SimpleFeature
   title = "Temporal Density Process",
   description = "Returns a histogram of how many data points fall in different time buckets within an interval."
 )
-class TemporalDensityProcess extends Logging {
+class TemporalDensityProcess extends LazyLogging {
 
   @DescribeResult(description = "Output feature collection")
   def execute(
@@ -78,7 +78,7 @@ class TemporalDensityProcess extends Logging {
 }
 
 class TemporalDensityVisitor(features: SimpleFeatureCollection, interval: Interval, buckets: Int)
-  extends FeatureCalc with Logging {
+  extends FeatureCalc with LazyLogging {
 
   val retType = createFeatureType(features.getSchema())
   val manualVisitResults = new DefaultFeatureCollection(null, retType)

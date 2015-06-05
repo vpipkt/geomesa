@@ -20,7 +20,7 @@ import java.util.concurrent.{Executors, TimeUnit}
 import com.google.common.base.Ticker
 import com.google.common.cache.{Cache, CacheBuilder, RemovalListener, RemovalNotification}
 import com.google.common.eventbus.{EventBus, Subscribe}
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.geotools.data.Query
 import org.geotools.data.store.ContentEntry
 import org.locationtech.geomesa.kafka.consumer.KafkaConsumerFactory
@@ -116,7 +116,7 @@ class LiveFeatureCache(override val sft: SimpleFeatureType,
 class KafkaFeatureConsumer(sft: SimpleFeatureType,
                            topic: String,
                            kf: KafkaConsumerFactory,
-                           eventBus: EventBus) extends Logging {
+                           eventBus: EventBus) extends LazyLogging {
 
   private val msgDecoder = new KafkaGeoMessageDecoder(sft)
 

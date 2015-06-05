@@ -2,12 +2,12 @@ package org.locationtech.geomesa.accumulo.util
 
 import java.util.concurrent.TimeUnit
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.client.BatchWriterConfig
 
 import scala.util.Try
 
-object GeoMesaBatchWriterConfig extends Logging {
+object GeoMesaBatchWriterConfig extends LazyLogging {
   val WRITER_LATENCY_SECONDS = "geomesa.batchwriter.latency.seconds"  // Measured in seconds
   val WRITER_LATENCY_MILLIS  = "geomesa.batchwriter.latency.millis"   // Measured in millis
   val WRITER_MEMORY          = "geomesa.batchwriter.memory"           // Measured in bytes

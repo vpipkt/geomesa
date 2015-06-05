@@ -12,7 +12,7 @@ import org.locationtech.geomesa.convert.{SimpleFeatureConverter, SimpleFeatureCo
 import org.locationtech.geomesa.stream.{SimpleFeatureStreamSource, SimpleFeatureStreamSourceFactory}
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
-import org.slf4j.LoggerFactory
+import org.slf4j.LazyLoggingFactory
 
 import scala.util.Try
 
@@ -45,7 +45,7 @@ class GenericSimpleFeatureStreamSource(val ctx: CamelContext,
                                        parserFactory: () => SimpleFeatureConverter[String])
   extends SimpleFeatureStreamSource {
 
-  private val logger = LoggerFactory.getLogger(classOf[GenericSimpleFeatureStreamSource])
+  private val logger = LazyLoggingFactory.getLazyLogging(classOf[GenericSimpleFeatureStreamSource])
   var inQ: LinkedBlockingQueue[String] = null
   var outQ: LinkedBlockingQueue[SimpleFeature] = null
   var parsers: Seq[SimpleFeatureConverter[String]] = null

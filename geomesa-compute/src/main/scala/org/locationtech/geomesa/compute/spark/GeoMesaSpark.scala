@@ -22,7 +22,7 @@ import java.util.UUID
 import com.esotericsoftware.kryo.Kryo
 import com.esotericsoftware.kryo.io.{Input, Output}
 import com.google.common.cache.{CacheBuilder, CacheLoader}
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.client.mapreduce.AccumuloInputFormat
 import org.apache.accumulo.core.client.mapreduce.lib.util.{ConfiguratorBase, InputConfigurator}
 import org.apache.accumulo.core.util.{Pair => AccPair}
@@ -48,7 +48,7 @@ import org.opengis.filter._
 
 import scala.collection.JavaConversions._
 
-object GeoMesaSpark extends Logging {
+object GeoMesaSpark extends LazyLogging {
 
   def init(conf: SparkConf, ds: DataStore): SparkConf = {
     val typeOptions = ds.getTypeNames.map { t => (t, SimpleFeatureTypes.encodeType(ds.getSchema(t))) }

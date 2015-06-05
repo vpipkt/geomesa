@@ -17,7 +17,7 @@ package org.locationtech.geomesa.kafka
 
 import java.util.Date
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.index.quadtree.Quadtree
 import org.geotools.data.store.ContentEntry
 import org.geotools.data.{EmptyFeatureReader, Query}
@@ -45,7 +45,7 @@ class ReplayKafkaConsumerFeatureSource(entry: ContentEntry,
                                        replayConfig: ReplayConfig,
                                        query: Query = null)
   extends KafkaConsumerFeatureSource(entry, replaySFT, query)
-  with Logging {
+  with LazyLogging {
 
   import TimestampFilterSplit.split
 
@@ -287,7 +287,7 @@ case class ReplayConfig(start: Instant, end: Instant, readBehind: Duration) {
   def isInWindow(time: Long): Boolean = !(start.isAfter(time) || end.isBefore(time))
 }
 
-object ReplayConfig extends Logging {
+object ReplayConfig extends LazyLogging {
 
   def apply(start: Long, end: Long, readBehind: Long): ReplayConfig =
     ReplayConfig(new Instant(start), new Instant(end), Duration.millis(readBehind))

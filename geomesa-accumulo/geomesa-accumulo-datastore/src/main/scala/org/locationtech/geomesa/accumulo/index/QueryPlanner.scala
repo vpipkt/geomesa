@@ -50,7 +50,7 @@ case class QueryPlanner(sft: SimpleFeatureType,
                         stSchema: String,
                         acc: AccumuloConnectorCreator,
                         hints: StrategyHints,
-                        version: Int) extends ExplainingLogging with IndexFilterHelpers with MethodProfiling {
+                        version: Int) extends ExplainingLazyLogging with IndexFilterHelpers with MethodProfiling {
 
   import org.locationtech.geomesa.accumulo.index.QueryPlanner._
 

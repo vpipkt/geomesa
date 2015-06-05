@@ -16,7 +16,7 @@
 package org.locationtech.geomesa.tools.commands
 
 import com.beust.jcommander.{JCommander, Parameter, Parameters}
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.client.TableNotFoundException
 import org.locationtech.geomesa.accumulo.data.AccumuloDataStore
 import org.locationtech.geomesa.accumulo.data.tables.{AttributeTable, RecordTable, SpatioTemporalTable, Z3Table}
@@ -26,7 +26,7 @@ import org.locationtech.geomesa.tools.commands.TableConfCommand._
 
 import scala.collection.JavaConversions._
 
-class TableConfCommand(parent: JCommander) extends CommandWithCatalog(parent) with Logging {
+class TableConfCommand(parent: JCommander) extends CommandWithCatalog(parent) with LazyLogging {
   override val command = "tableconf"
   override val params = null
   override def register = {}

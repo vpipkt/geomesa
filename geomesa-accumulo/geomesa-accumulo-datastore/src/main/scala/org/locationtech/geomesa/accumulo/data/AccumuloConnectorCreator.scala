@@ -16,11 +16,11 @@
 
 package org.locationtech.geomesa.accumulo.data
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.client.{BatchScanner, Scanner}
 import org.opengis.feature.simple.SimpleFeatureType
 
-trait AccumuloConnectorCreator extends Logging {
+trait AccumuloConnectorCreator extends LazyLogging {
 
   /**
    * Get the name of the spatio temporal index table in accumulo for the given feature

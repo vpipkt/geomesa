@@ -21,7 +21,7 @@ import java.io.IOException
 import java.util.{Map => JMap, NoSuchElementException}
 
 import com.google.common.collect.ImmutableSortedSet
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.client._
 import org.apache.accumulo.core.client.admin.TimeType
 import org.apache.accumulo.core.client.security.tokens.AuthenticationToken
@@ -80,7 +80,7 @@ class AccumuloDataStore(val connector: Connector,
                         val writeThreadsConfig: Option[Int] = None,
                         val cachingConfig: Boolean = false,
                         val featureEncoding: SerializationType = DEFAULT_ENCODING)
-    extends AbstractDataStore(true) with AccumuloConnectorCreator with StrategyHintsProvider with Logging {
+    extends AbstractDataStore(true) with AccumuloConnectorCreator with StrategyHintsProvider with LazyLogging {
 
   // having at least as many shards as tservers provides optimal parallelism in queries
   protected [accumulo] val DEFAULT_MAX_SHARD = connector.instanceOperations().getTabletServers.size()

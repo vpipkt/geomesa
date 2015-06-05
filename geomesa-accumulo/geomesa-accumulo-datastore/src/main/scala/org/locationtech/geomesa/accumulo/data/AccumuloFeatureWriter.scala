@@ -18,7 +18,7 @@ package org.locationtech.geomesa.accumulo.data
 
 import java.util.UUID
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.client.BatchWriter
 import org.apache.accumulo.core.data.{Key, Mutation, Value}
 import org.apache.accumulo.core.security.ColumnVisibility
@@ -85,7 +85,7 @@ abstract class AccumuloFeatureWriter(sft: SimpleFeatureType,
                                      encoder: SimpleFeatureSerializer,
                                      indexValueEncoder: IndexValueEncoder,
                                      ds: AccumuloDataStore,
-                                     defaultVisibility: String) extends SimpleFeatureWriter with Logging {
+                                     defaultVisibility: String) extends SimpleFeatureWriter with LazyLogging {
 
   protected val multiBWWriter = ds.connector.createMultiTableBatchWriter(GeoMesaBatchWriterConfig())
 

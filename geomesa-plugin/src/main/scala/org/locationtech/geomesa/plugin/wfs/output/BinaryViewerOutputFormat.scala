@@ -19,7 +19,7 @@ package org.locationtech.geomesa.plugin.wfs.output
 import java.io.{BufferedOutputStream, OutputStream}
 import javax.xml.namespace.QName
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom.LineString
 import net.opengis.wfs.{GetFeatureType => GetFeatureTypeV1, QueryType => QueryTypeV1}
 import net.opengis.wfs20.{GetFeatureType => GetFeatureTypeV2, QueryType => QueryTypeV2}
@@ -114,7 +114,7 @@ class BinaryViewerOutputFormat(gs: GeoServer)
 
 }
 
-object BinaryViewerOutputFormat extends Logging {
+object BinaryViewerOutputFormat extends LazyLogging {
 
   import org.locationtech.geomesa.filter.function.AxisOrder
   import org.locationtech.geomesa.filter.function.AxisOrder.{LatLon, LonLat}

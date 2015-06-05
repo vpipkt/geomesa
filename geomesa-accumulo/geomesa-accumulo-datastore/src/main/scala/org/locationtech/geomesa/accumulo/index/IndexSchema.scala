@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.accumulo.index
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom.{Geometry, GeometryCollection, Point, Polygon}
 import org.apache.accumulo.core.data.Key
 import org.geotools.data.Query
@@ -65,7 +65,7 @@ import scala.util.parsing.combinator.RegexParsers
 //
 // %~#s%999#r%0,4#gh%HHmm#d::%~#s%4,2#gh::%~#s%6,1#gh%yyyyMMdd#d
 
-object IndexSchema extends RegexParsers with Logging {
+object IndexSchema extends RegexParsers with LazyLogging {
   val minDateTime = new DateTime(0, 1, 1, 0, 0, 0, DateTimeZone.forID("UTC"))
   val maxDateTime = new DateTime(9999, 12, 31, 23, 59, 59, DateTimeZone.forID("UTC"))
   val everywhen = new Interval(minDateTime, maxDateTime)

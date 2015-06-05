@@ -4,7 +4,7 @@ import java.nio.ByteBuffer
 import java.util
 import java.util.{Collection => jCollection, Map => jMap}
 
-import com.typesafe.scalalogging.slf4j.{Logger, Logging}
+import com.typesafe.scalalogging.slf4j.{LazyLogging, LazyLogging}
 import org.apache.accumulo.core.client.IteratorSetting
 import org.apache.accumulo.core.data.{ByteSequence, Key, Range, Value}
 import org.apache.accumulo.core.iterators.{IteratorEnvironment, SortedKeyValueIterator}
@@ -20,7 +20,7 @@ import org.opengis.filter.Filter
 
 import scala.reflect.ClassTag
 
-trait LazyFilterTransformIterator extends SortedKeyValueIterator[Key, Value] with Logging {
+trait LazyFilterTransformIterator extends SortedKeyValueIterator[Key, Value] with LazyLogging {
 
   import LazyFilterTransformIterator._
 
@@ -148,7 +148,7 @@ object LazyFilterTransformIterator {
 
   private var initialized = false
 
-  def initClassLoader(log: Logger) = synchronized {
+  def initClassLoader(log: LazyLogging) = synchronized {
     if (!initialized) {
       try {
         log.trace("Initializing classLoader")

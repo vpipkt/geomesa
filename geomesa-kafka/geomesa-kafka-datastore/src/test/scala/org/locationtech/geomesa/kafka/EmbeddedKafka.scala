@@ -18,7 +18,7 @@ package org.locationtech.geomesa.kafka
 
 import java.net.InetSocketAddress
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import kafka.server.KafkaConfig
 import kafka.utils.{TestUtils, Utils}
 import org.apache.zookeeper.server.{NIOServerCnxnFactory, ZooKeeperServer}
@@ -33,7 +33,7 @@ trait HasEmbeddedKafka {
   def shutdown(): Unit = EmbeddedKafka.shutdown()
 }
 
-trait EmbeddedServiceManager[S <: EmbeddedService[C], C] extends Logging {
+trait EmbeddedServiceManager[S <: EmbeddedService[C], C] extends LazyLogging {
 
   private var count = 0
   private var service: S = null.asInstanceOf[S]

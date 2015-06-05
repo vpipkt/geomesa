@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.accumulo
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import com.vividsolutions.jts.geom.Geometry
 import org.apache.accumulo.core.data.{Key, Range => AccRange, Value}
 import org.geotools.data.Query
@@ -229,7 +229,7 @@ package object index {
     override def toString() = string.toString()
   }
 
-  trait ExplainingLogging extends Logging {
+  trait ExplainingLazyLogging extends LazyLogging {
     def log(stringFnx: => String) = {
       lazy val s: String = stringFnx
       logger.trace(s)

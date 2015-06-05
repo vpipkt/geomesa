@@ -16,7 +16,7 @@
 
 package org.locationtech.geomesa.accumulo.filter
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.geotools.filter.text.ecql.ECQL
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.accumulo.filter.TestFilters._
@@ -30,7 +30,7 @@ import org.specs2.specification.Fragments
 import scala.collection.JavaConversions._
 
 @RunWith(classOf[JUnitRunner])
-class FilterPackageObjectTest extends Specification with Logging {
+class FilterPackageObjectTest extends Specification with LazyLogging {
 
   "The partitionGeom function" should {
     val sft = SimpleFeatureTypes.createType("filterPackageTest", "g:Geometry,*geom:Geometry")

@@ -1,6 +1,6 @@
 package org.locationtech.geomesa.web.data
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.locationtech.geomesa.tools.DataStoreHelper
 import org.locationtech.geomesa.tools.commands.GeoMesaParams
 import org.locationtech.geomesa.tools.commands.RemoveSchemaCommand.RemoveSchemaParams
@@ -11,7 +11,7 @@ import org.scalatra.servlet.FileUploadSupport
 
 import scala.util.Try
 
-class DataEndpoint extends GeoMesaScalatraServlet with Logging {
+class DataEndpoint extends GeoMesaScalatraServlet with LazyLogging {
 
   override val root: String = "data"
 

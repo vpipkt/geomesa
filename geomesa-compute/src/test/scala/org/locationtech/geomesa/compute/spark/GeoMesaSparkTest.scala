@@ -20,7 +20,7 @@ package org.locationtech.geomesa.compute.spark
 import java.io.{Serializable => JSerializable}
 import java.util.{Properties, UUID}
 
-import com.typesafe.scalalogging.slf4j.Logging
+import com.typesafe.scalalogging.slf4j.LazyLogging
 import org.apache.accumulo.core.client.mock.MockInstance
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.hadoop.conf.Configuration
@@ -45,7 +45,7 @@ import scala.collection.JavaConversions._
 import scala.util.Random
 
 @RunWith(classOf[JUnitRunner])
-class GeoMesaSparkTest extends Specification with Logging {
+class GeoMesaSparkTest extends Specification with LazyLogging {
 
   sequential
 
