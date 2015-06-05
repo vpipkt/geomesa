@@ -45,7 +45,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <scala.version>2.10.5</scala.version>
+        <scala.version>2.11.6</scala.version>
         <geoserver.version>2.5.2</geoserver.version>
         <gt.version>11.2</gt.version>
         <jts.version>1.13</jts.version>
@@ -62,7 +62,7 @@
         <!-- accumulo 1.4.3 is incompatible with a 1.5.6+ version of slf4j -->
         <!-- 1.7.x is for hadoop 2 and accumulo 1.5.x -->
         <slf4j.version>1.7.5</slf4j.version>
-        <scalalogging.version>1.1.0</scalalogging.version>
+        <scala-logging.version>2.1.2</scala-logging.version>
         <log4j.version>1.2.17</log4j.version>
 
         <!-- distribution properties -->
@@ -433,7 +433,7 @@
             </dependency>
             <dependency>
                 <groupId>com.twitter</groupId>
-                <artifactId>scalding-core_2.10</artifactId>
+                <artifactId>scalding-core_2.11</artifactId>
                 <version>${scalding.version}</version>
                 <exclusions>
                     <exclusion>
@@ -561,7 +561,7 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.spark</groupId>
-                <artifactId>spark-core_2.10</artifactId>
+                <artifactId>spark-core_2.11</artifactId>
                 <version>1.1.0</version>
                 <scope>provided</scope>
             </dependency>
@@ -623,8 +623,8 @@
             </dependency>
             <dependency>
                 <groupId>com.typesafe</groupId>
-                <artifactId>scalalogging-slf4j_2.10</artifactId>
-                <version>${scalalogging.version}</version>
+                <artifactId>scala-logging-slf4j_2.11</artifactId>
+                <version>${scala-logging.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
@@ -859,7 +859,7 @@
             </dependency>
             <dependency>
                 <groupId>org.specs2</groupId>
-                <artifactId>specs2_2.10</artifactId>
+                <artifactId>specs2_2.11</artifactId>
                 <version>2.3.13</version>
                 <scope>test</scope>
             </dependency>
