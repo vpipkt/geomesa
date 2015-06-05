@@ -8,6 +8,9 @@
 
 package org.locationtech.geomesa.accumulo.index
 
+import java.io.FileInputStream
+import java.util.Date
+
 import org.apache.accumulo.core.data.{Range => AccRange}
 import org.apache.accumulo.core.security.Authorizations
 import org.geotools.data.Query
@@ -17,7 +20,9 @@ import org.junit.runner.RunWith
 import org.locationtech.geomesa.accumulo.TestWithDataStore
 import org.locationtech.geomesa.accumulo.data.INTERNAL_GEOMESA_VERSION
 import org.locationtech.geomesa.accumulo.data.tables.Z3Table
+import org.locationtech.geomesa.accumulo.iterators.{BinSorter, BinAggregatingIterator}
 import org.locationtech.geomesa.features.{ScalaSimpleFeature, SerializationType}
+import org.locationtech.geomesa.filter.function.Convert2ViewerFunction
 import org.opengis.feature.simple.SimpleFeature
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -168,6 +173,31 @@ class Z3IdxStrategyTest extends Specification with TestWithDataStore {
       forall(features)((f: SimpleFeature) => f.getAttribute("geom") must not(beNull))
       forall(features)((f: SimpleFeature) => f.getAttribute("dtg") must not(beNull))
     }.pendingUntilFixed("not implemented")
+
+    "optimize for bin format" >> {
+      import org.locationtech.geomesa.accumulo.index.QueryHints._
+      val filter = "bbox(geom, -180, -90, 180, 90)" +
+          " AND dtg during 2010-05-07T00:00:00.000Z/2010-05-07T12:00:00.000Z"
+      val query = getQuery(filter, None)
+      query.getHints.put(BIN_TRACK_KEY, "name")
+      query.getHints.put(BIN_BATCH_SIZE_KEY, 100)
+      val qps = getQueryPlans(query)
+      qps must haveSize(1)
+      qps.head.plan.iterators.map(_.getIteratorClass) must
+          contain(classOf[BinAggregatingIterator].getCanonicalName)
+      val returnedFeatures = queryPlanner.executePlans(query, qps, deduplicate = false)
+      // the same simple feature gets reused - so make sure you access in serial order
+      val aggregates = returnedFeatures.map(f =>
+        f.getAttribute(BinAggregatingIterator.BIN_ATTRIBUTE_INDEX).asInstanceOf[Array[Byte]]).toSeq
+      aggregates.size must beLessThan(10) // ensure some aggregation was done
+      val bin = aggregates.flatMap(a => a.grouped(16).map(Convert2ViewerFunction.decode))
+      bin must haveSize(10)
+      bin.map(_.trackId) must containAllOf((0 until 10).map(i => s"name$i".hashCode.toString))
+      bin.map(_.dtg) must
+          containAllOf((0 until 10).map(i => features(i).getAttribute("dtg").asInstanceOf[Date].getTime))
+      bin.map(_.lat) must containAllOf((0 until 10).map(_ + 60.0))
+      forall(bin.map(_.lon))(_ mustEqual 40.0)
+    }
   }
 
   def execute(ecql: String, transforms: Option[Array[String]] = None) = {
@@ -176,14 +206,22 @@ class Z3IdxStrategyTest extends Specification with TestWithDataStore {
   }
 
   def getQueryPlans(ecql: String, transforms: Option[Array[String]] = None): (Query, Seq[StrategyPlan]) = {
+    val query = getQuery(ecql, transforms)
+    (query, strategy.getQueryPlans(query, queryPlanner, output).map(qp => StrategyPlan(strategy, qp)))
+  }
+
+  def getQuery(ecql: String, transforms: Option[Array[String]] = None): Query = {
     val filter = org.locationtech.geomesa.accumulo.filter.rewriteFilterInDNF(ECQL.toFilter(ecql))
-    val query = transforms match {
+    transforms match {
       case None    => new Query(sftName, filter)
       case Some(t) =>
         val q = new Query(sftName, filter, t)
         setQueryTransforms(q, sft)
         q
     }
-    (query, strategy.getQueryPlans(query, queryPlanner, output).map(qp => StrategyPlan(strategy, qp)))
+  }
+
+  def getQueryPlans(query: Query): Seq[StrategyPlan] = {
+    strategy.getQueryPlans(query, queryPlanner, output).map(qp => StrategyPlan(strategy, qp))
   }
 }

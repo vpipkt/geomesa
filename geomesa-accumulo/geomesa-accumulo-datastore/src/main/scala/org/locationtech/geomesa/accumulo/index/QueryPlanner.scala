@@ -84,7 +84,7 @@ case class QueryPlanner(sft: SimpleFeatureType,
     val dedupedFeatures = if (deduplicate) new DeDuplicatingIterator(features) else features
 
     val sortedFeatures = if (query.getSortBy != null && query.getSortBy.length > 0) {
-      new LazySortedIterator(dedupedFeatures, query.getSortBy)
+      new LazySortedIterator(dedupedFeatures, sft, query.getSortBy)
     } else {
       dedupedFeatures
     }
@@ -255,6 +255,7 @@ object QueryPlanner {
 }
 
 class LazySortedIterator(features: CloseableIterator[SimpleFeature],
+                         sft: SimpleFeatureType,
                          sortBy: Array[SortBy]) extends CloseableIterator[SimpleFeature] {
 
   private lazy val sorted: CloseableIterator[SimpleFeature] = {
@@ -263,7 +264,7 @@ class LazySortedIterator(features: CloseableIterator[SimpleFeature],
       case SortBy.NATURAL_ORDER => Ordering.by[SimpleFeature, String](_.getID)
       case SortBy.REVERSE_ORDER => Ordering.by[SimpleFeature, String](_.getID).reverse
       case sb                   =>
-        val prop = sb.getPropertyName.getPropertyName
+        val prop = sft.indexOf(sb.getPropertyName.getPropertyName)
         val ord  = attributeToComparable(prop)
         if (sb.getSortOrder == SortOrder.DESCENDING) ord.reverse else ord
     }
@@ -284,16 +285,17 @@ class LazySortedIterator(features: CloseableIterator[SimpleFeature],
     CloseableIterator(buf.sortWith(comp).iterator)
   }
 
-  def attributeToComparable[T <: Comparable[T]](prop: String)(implicit ct: ClassTag[T]): Ordering[SimpleFeature] =
-    Ordering.by[SimpleFeature, T](_.getAttribute(prop).asInstanceOf[T])(new Ordering[T] {
+  def attributeToComparable[T <: Comparable[T]](i: Int)(implicit ct: ClassTag[T]): Ordering[SimpleFeature] =
+    Ordering.by[SimpleFeature, T](_.getAttribute(i).asInstanceOf[T])(new Ordering[T] {
       val evo = implicitly[Ordering[T]]
 
       override def compare(x: T, y: T): Int = {
-        (x, y) match {
-          case (null, null) => 0
-          case (null, _)    => -1
-          case (_, null)    => 1
-          case (_, _)       => evo.compare(x, y)
+        if (x == null) {
+          if (y == null) { 0 } else { -1 }
+        } else if (y == null) {
+          1
+        } else {
+          evo.compare(x, y)
         }
       }
     })

@@ -20,6 +20,7 @@ import java.util.NoSuchElementException
 import org.geotools.factory.CommonFactoryFinder
 import org.junit.runner.RunWith
 import org.locationtech.geomesa.accumulo.util.CloseableIterator
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.opengis.feature.simple.SimpleFeature
 import org.opengis.filter.sort.{SortBy, SortOrder}
 import org.specs2.matcher.MatchResult
@@ -31,7 +32,9 @@ import org.specs2.runner.JUnitRunner
 class LazySortedIteratorTest extends Specification with Mockito {
 
   val ff = CommonFactoryFinder.getFilterFactory
-  
+
+  val sft = SimpleFeatureTypes.createType("LazySortedIteratorTest", "name:String,age:Int,*geom:Point:srid=4326")
+
   "LazySortedIterator" should {
 
     val a =  mockSF(1, "A", 7)
@@ -47,7 +50,7 @@ class LazySortedIteratorTest extends Specification with Mockito {
         features.hasNext returns true thenReturns true thenReturns false
         features.next returns b thenReturns a thenThrows new NoSuchElementException
 
-        val test = new LazySortedIterator(features, Array(SortBy.NATURAL_ORDER))
+        val test = new LazySortedIterator(features, sft, Array(SortBy.NATURAL_ORDER))
 
         there was no(features).hasNext
         there was no(features).next
@@ -65,7 +68,7 @@ class LazySortedIteratorTest extends Specification with Mockito {
         features.hasNext returns true thenReturns true thenReturns false
         features.next returns b thenReturns a thenThrows new NoSuchElementException
 
-        val test = new LazySortedIterator(features, Array(SortBy.NATURAL_ORDER))
+        val test = new LazySortedIterator(features, sft, Array(SortBy.NATURAL_ORDER))
 
         there was no(features).hasNext
         there was no(features).next
@@ -127,8 +130,8 @@ class LazySortedIteratorTest extends Specification with Mockito {
   def mockSF(id: Int, name: String, age: Int): SimpleFeature = {
     val sf = mock[SimpleFeature]
     sf.getID returns id.toString
-    sf.getAttribute("name") returns name
-    sf.getAttribute("age") returns age.asInstanceOf[AnyRef]
+    sf.getAttribute(0) returns name
+    sf.getAttribute(1) returns age.asInstanceOf[AnyRef]
     sf
   }
 
@@ -136,7 +139,7 @@ class LazySortedIteratorTest extends Specification with Mockito {
              sortBy: Array[SortBy],
              expected: Seq[SimpleFeature]): MatchResult[Any] = {
 
-    val test = new LazySortedIterator(features, sortBy)
+    val test = new LazySortedIterator(features, sft, sortBy)
 
     expected.foreach {f =>
       test.hasNext must beTrue
