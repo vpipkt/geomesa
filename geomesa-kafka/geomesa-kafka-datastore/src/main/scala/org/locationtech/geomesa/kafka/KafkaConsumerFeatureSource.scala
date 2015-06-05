@@ -125,6 +125,8 @@ class KafkaConsumerFeatureSource(entry: ContentEntry,
     qt = new SynchronizedQuadtree
   }
 
+  override val canFilter = true
+
   override def getBoundsInternal(query: Query) =
     ReferencedEnvelope.create(new Envelope(-180, 180, -90, 90), DefaultGeographicCRS.WGS84)
 
