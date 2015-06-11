@@ -13,6 +13,7 @@ import org.locationtech.geomesa.accumulo.index.QueryPlanners.FeatureFunction
 import org.locationtech.geomesa.accumulo.iterators.{BinAggregatingIterator, Z3Iterator}
 import org.locationtech.geomesa.accumulo.{filter, index}
 import org.locationtech.geomesa.curve.Z3SFC
+import org.locationtech.geomesa.filter.checkOrder
 import org.locationtech.geomesa.iterators.{KryoLazyFilterTransformIterator, LazyFilterTransformIterator}
 import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType.RichSimpleFeatureType
 import org.opengis.feature.simple.SimpleFeatureType
