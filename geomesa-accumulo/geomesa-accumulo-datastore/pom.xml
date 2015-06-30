@@ -116,9 +116,11 @@
             <groupId>org.apache.accumulo</groupId>
             <artifactId>accumulo-core</artifactId>
         </dependency>
+
+        <!--JNH requires profiles here to use server-base/server for 1.6/1.5-->
         <dependency>
             <groupId>org.apache.accumulo</groupId>
-            <artifactId>accumulo-server</artifactId>
+            <artifactId>accumulo-server-base</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.accumulo</groupId>

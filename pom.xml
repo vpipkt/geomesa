@@ -48,7 +48,7 @@
         <specs2.version>2.3.13</specs2.version>
         <!-- environment-dependent versions -->
         <zookeeper.version>3.4.5</zookeeper.version>
-        <accumulo.version>1.6.2</accumulo.version>
+
         <hadoop.version>2.2.0</hadoop.version>
         <scalding.version>0.13.1</scalding.version>
 
@@ -74,6 +74,27 @@
     </properties>
 
     <profiles>
+
+        <profile>
+            <id>Accumulo 1.6</id>
+            <activation>
+                <property><name>!accumulo-1.5</name></property>
+            </activation>
+            <properties>
+                <accumulo.version>1.6.2</accumulo.version>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>Accumulo 1.5</id>
+            <activation>
+                <property><name>accumulo-1.5</name></property>
+            </activation>
+            <properties>
+                <accumulo.version>1.5.2</accumulo.version>
+            </properties>
+        </profile>
+
         <profile>
             <id>debug-tests</id>
             <properties>
@@ -673,12 +694,15 @@
                 <classifier>source</classifier>
                 <scope>provided</scope>
             </dependency>
+
+            <!-- Accumulo 1.6 dependency -->
             <dependency>
                 <groupId>org.apache.accumulo</groupId>
                 <artifactId>accumulo-server-base</artifactId>
                 <version>${accumulo.version}</version>
                 <scope>provided</scope>
             </dependency>
+
             <dependency>
                 <groupId>org.apache.accumulo</groupId>
                 <artifactId>cloudtrace</artifactId>
