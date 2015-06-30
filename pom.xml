@@ -20,21 +20,21 @@
         <module>geomesa-security</module>
         <module>geomesa-features</module>
         <module>geomesa-filter</module>
-        <module>geomesa-distributed-runtime</module>
-        <module>geomesa-jobs</module>
-        <module>geomesa-plugin</module>
         <module>geomesa-kafka</module>
         <module>geomesa-convert</module>
         <module>geomesa-tools</module>
         <module>geomesa-compute</module>
-        <module>geomesa-assemble</module>
-        <module>geomesa-raster</module>
-        <module>geomesa-web</module>
         <module>geomesa-process</module>
         <module>geomesa-stream</module>
-        <module>geomesa-examples</module>
-        <module>geomesa-z3</module>
         <module>geomesa-accumulo</module>
+        <module>geomesa-web</module>
+        <module>geomesa-z3</module>
+        <module>geomesa-jobs</module>
+        <module>geomesa-plugin</module>
+        <module>geomesa-distributed-runtime</module>
+        <module>geomesa-examples</module>
+        <module>geomesa-raster</module>
+        <module>geomesa-assemble</module>
     </modules>
 
     <properties>
@@ -48,7 +48,7 @@
         <specs2.version>2.3.13</specs2.version>
         <!-- environment-dependent versions -->
         <zookeeper.version>3.4.5</zookeeper.version>
-        <accumulo.version>1.5.1</accumulo.version>
+        <accumulo.version>1.6.2</accumulo.version>
         <hadoop.version>2.2.0</hadoop.version>
         <scalding.version>0.13.1</scalding.version>
 
