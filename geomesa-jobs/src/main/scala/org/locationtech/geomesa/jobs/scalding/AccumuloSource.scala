@@ -11,6 +11,14 @@ package org.locationtech.geomesa.jobs.scalding
 import cascading.tuple._
 import com.twitter.scalding._
 import org.apache.accumulo.core.data.{Key, Mutation, Range => AcRange, Value}
+import com.typesafe.scalalogging.slf4j.Logging
+import org.apache.accumulo.core.client.mapred.{AccumuloInputFormat, AccumuloOutputFormat, InputFormatBase}
+import org.apache.accumulo.core.client.mapreduce.lib.impl.InputConfigurator
+import org.apache.accumulo.core.client.mapreduce.lib.util.ConfiguratorBase
+import org.apache.accumulo.core.client.security.tokens.PasswordToken
+import org.apache.accumulo.core.client.{BatchWriterConfig, IteratorSetting, ZooKeeperInstance}
+import org.apache.accumulo.core.data.{Key, Mutation, Value, Range => acRange}
+import org.apache.accumulo.core.security.Authorizations
 import org.apache.accumulo.core.util.{Pair => AcPair}
 import org.apache.hadoop.io.Text
 import org.locationtech.geomesa.jobs.scalding.taps.{AccumuloLocalScheme, AccumuloLocalTap, AccumuloScheme, AccumuloTap}
