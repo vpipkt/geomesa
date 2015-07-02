@@ -16,8 +16,8 @@ import cascading.tuple.{Tuple, TupleEntryCollector, TupleEntryIterator, TupleEnt
 import com.twitter.scalding.AccessMode
 import com.typesafe.scalalogging.slf4j.Logging
 import org.apache.accumulo.core.client.ZooKeeperInstance
-import org.apache.accumulo.core.client.mapred.{AccumuloInputFormat, AccumuloOutputFormat, InputFormatBase}
-import org.apache.accumulo.core.client.mapreduce.lib.util.ConfiguratorBase
+import org.apache.accumulo.core.client.mapred.{AbstractInputFormat, AccumuloInputFormat, AccumuloOutputFormat, InputFormatBase}
+import org.apache.accumulo.core.client.mapreduce.lib.impl.ConfiguratorBase
 import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.accumulo.core.data.{Key, Mutation, Value}
 import org.apache.hadoop.io.Text
@@ -124,10 +124,10 @@ case class AccumuloScheme(options: AccumuloSourceOptions)
 
     // this method may be called more than once so check to see if we've already configured
     if (!ConfiguratorBase.isConnectorInfoSet(classOf[AccumuloInputFormat], conf)) {
-      InputFormatBase.setZooKeeperInstance(conf, input.instance, input.zooKeepers)
-      InputFormatBase.setConnectorInfo(conf, input.user, new PasswordToken(input.password.getBytes))
+      AbstractInputFormat.setZooKeeperInstance(conf, input.instance, input.zooKeepers)
+      AbstractInputFormat.setConnectorInfo(conf, input.user, new PasswordToken(input.password.getBytes))
       InputFormatBase.setInputTableName(conf, input.table)
-      InputFormatBase.setScanAuthorizations(conf, input.authorizations)
+      AbstractInputFormat.setScanAuthorizations(conf, input.authorizations)
       if (input.ranges.nonEmpty) {
         val ranges = input.ranges.collect { case SerializedRangeSeq(r) => r }
         InputFormatBase.setRanges(conf, ranges)
@@ -141,7 +141,7 @@ case class AccumuloScheme(options: AccumuloSourceOptions)
       input.localIterators.foreach(InputFormatBase.setLocalIterators(conf, _))
       input.offlineTableScan.foreach(InputFormatBase.setOfflineTableScan(conf, _))
       input.scanIsolation.foreach(InputFormatBase.setScanIsolation(conf, _))
-      input.logLevel.foreach(InputFormatBase.setLogLevel(conf, _))
+      input.logLevel.foreach(AbstractInputFormat.setLogLevel(conf, _))
     }
 
     conf.setInputFormat(classOf[AccumuloInputFormat])
@@ -153,7 +153,7 @@ case class AccumuloScheme(options: AccumuloSourceOptions)
     )
 
     // this method may be called more than once so check to see if we've already configured
-    if (!ConfiguratorBase.isConnectorInfoSet(classOf[AccumuloOutputFormat], conf)) {
+    if (!ConfiguratorBase.isConnectorInfoSet(classOf[AccumuloInputFormat], conf)) {
       AccumuloOutputFormat.setConnectorInfo(
         conf, output.user, new PasswordToken(output.password.getBytes))
       AccumuloOutputFormat.setDefaultTableName(conf, output.table)

@@ -119,10 +119,6 @@
             <artifactId>zookeeper</artifactId>
         </dependency>
         <dependency>
-            <groupId>javax.media</groupId>
-            <artifactId>jai_core</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.beust</groupId>
             <artifactId>jcommander</artifactId>
         </dependency>
@@ -175,6 +171,44 @@
     </build>
 
     <profiles>
+        <profile>
+            <id>Accumulo 1.6</id>
+            <activation>
+                <property><name>!accumulo-1.5</name></property>
+            </activation>
+            <properties>
+                <accumulo.version>1.6.2</accumulo.version>
+            </properties>
+            <dependencies>
+                <!-- Accumulo 1.6 dependency -->
+                <dependency>
+                    <groupId>org.apache.accumulo</groupId>
+                    <artifactId>accumulo-server-base</artifactId>
+                    <version>${accumulo.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
+        <profile>
+            <id>Accumulo 1.5</id>
+            <activation>
+                <property><name>accumulo-1.5</name></property>
+            </activation>
+            <properties>
+                <accumulo.version>1.5.2</accumulo.version>
+            </properties>
+            <dependencies>
+                <!-- Accumulo 1.5 dependency -->
+                <dependency>
+                    <groupId>org.apache.accumulo</groupId>
+                    <artifactId>accumulo-server</artifactId>
+                    <version>${accumulo.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+
         <profile>
             <id>assemble</id>
             <build>
