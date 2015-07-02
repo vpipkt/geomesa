@@ -153,7 +153,7 @@ case class AccumuloScheme(options: AccumuloSourceOptions)
     )
 
     // this method may be called more than once so check to see if we've already configured
-    if (!ConfiguratorBase.isConnectorInfoSet(classOf[AccumuloInputFormat], conf)) {
+    if (!ConfiguratorBase.isConnectorInfoSet(classOf[AccumuloOutputFormat], conf)) {
       AccumuloOutputFormat.setConnectorInfo(
         conf, output.user, new PasswordToken(output.password.getBytes))
       AccumuloOutputFormat.setDefaultTableName(conf, output.table)
