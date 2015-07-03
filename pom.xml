@@ -75,7 +75,6 @@
     </properties>
 
     <profiles>
-
         <profile>
             <id>Accumulo 1.6</id>
             <activation>

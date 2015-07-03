@@ -12,9 +12,7 @@ import java.io.{DataInput, DataOutput}
 import java.lang.Float._
 
 import com.typesafe.scalalogging.slf4j.Logging
-import org.apache.accumulo.core.client.mapreduce.lib.util.{InputConfigurator, ConfiguratorBase}
 import org.apache.accumulo.core.client.mapreduce.{AccumuloInputFormat, InputFormatBase, RangeInputSplit}
-import org.apache.accumulo.core.client.security.tokens.PasswordToken
 import org.apache.accumulo.core.data.{Key, Value}
 import org.apache.accumulo.core.security.Authorizations
 import org.apache.accumulo.core.util.{Pair => AccPair}
@@ -25,6 +23,7 @@ import org.geotools.data.{DataStoreFinder, Query}
 import org.geotools.filter.text.ecql.ECQL
 import org.locationtech.geomesa.accumulo.data.{AccumuloDataStore, AccumuloDataStoreFactory}
 import org.locationtech.geomesa.accumulo.index._
+import org.locationtech.geomesa.accumulo.mapreduce.AccumuloAdapter
 import org.locationtech.geomesa.accumulo.stats.QueryStatTransform
 import org.locationtech.geomesa.features.SerializationType.SerializationType
 import org.locationtech.geomesa.features.SimpleFeatureDeserializers
@@ -65,14 +64,14 @@ object GeoMesaInputFormat extends Logging {
     // set up the underlying accumulo input format
     val user = AccumuloDataStoreFactory.params.userParam.lookUp(dsParams).asInstanceOf[String]
     val password = AccumuloDataStoreFactory.params.passwordParam.lookUp(dsParams).asInstanceOf[String]
-    ConfiguratorBase.setConnectorInfo(classOf[AccumuloInputFormat], job.getConfiguration, user, new PasswordToken(password.getBytes))
+    AccumuloAdapter.setConnectorInfo(job.getConfiguration, user, password)
 
     val instance = AccumuloDataStoreFactory.params.instanceIdParam.lookUp(dsParams).asInstanceOf[String]
     val zookeepers = AccumuloDataStoreFactory.params.zookeepersParam.lookUp(dsParams).asInstanceOf[String]
-    ConfiguratorBase.setZooKeeperInstance(classOf[AccumuloInputFormat], job.getConfiguration, instance, zookeepers)
+    AccumuloAdapter.setZooKeeperInstance(job.getConfiguration, instance, zookeepers)
 
     val auths = Option(AccumuloDataStoreFactory.params.authsParam.lookUp(dsParams).asInstanceOf[String])
-    auths.foreach(a => InputConfigurator.setScanAuthorizations(classOf[AccumuloInputFormat], job.getConfiguration, new Authorizations(a.split(","): _*)))
+    auths.foreach(a => AccumuloAdapter.setScanAuthorizations(job.getConfiguration, new Authorizations(a.split(","): _*)))
 
     // run an explain query to set up the iterators, ranges, etc
     val featureTypeName = query.getTypeName
