@@ -16,7 +16,7 @@
     </parent>
 
     <artifactId>geomesa-accumulo-adapter-1.5</artifactId>
-    <name>GeoMesa Accumulo DataStore</name>
+    <name>GeoMesa Accumulo Adapter 1.5</name>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
