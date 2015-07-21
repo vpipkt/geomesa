@@ -41,7 +41,7 @@ class DataStoreHelper(params: GeoMesaParams) extends AccumuloProperties {
     }
   
   private def getDataStore(): AccumuloDataStore =
-    Try({ DataStoreFinder.getDataStore(paramMap).asInstanceOf[AccumuloDataStore] }) match {
+    Try({ (new AccumuloDataStoreFactory).createDataStore(paramMap) }) match {
       case Success(value) => value
       case Failure(ex)    =>
         val paramMsg = paramMap.map { case (k,v) => s"$k=$v" }.mkString(",")

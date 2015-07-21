@@ -33,7 +33,7 @@ class AccumuloDataStoreFactory extends DataStoreFactorySpi {
   // this is a pass-through required of the ancestor interface
   def createNewDataStore(params: JMap[String, Serializable]) = createDataStore(params)
 
-  def createDataStore(params: JMap[String, Serializable]) = {
+  def createDataStore(params: JMap[String, Serializable]): AccumuloDataStore = {
 
     val visStr = visibilityParam.lookUp(params).asInstanceOf[String]
 
