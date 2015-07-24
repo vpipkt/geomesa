@@ -2,4 +2,6 @@
 script:
   - sudo rm /etc/mavenrc
   - export MAVEN_OPTS="-Xmx2469m -XX:MaxPermSize=512m"
-  - mvn clean install -T2 | grep -v -e 'Downloading:' -e 'Downloaded:'
+  - mvn -B -l /tmp/build.out clean install -T2 
+
+after_failure: "tail -n 1000 /tmp/build.out"
