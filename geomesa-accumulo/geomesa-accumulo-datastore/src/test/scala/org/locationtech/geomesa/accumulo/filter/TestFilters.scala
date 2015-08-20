@@ -185,6 +185,12 @@ object TestFilters {
     "INTERSECTS(geom, POLYGON ((45 23, 48 23, 48 27, 45 27, 45 23))) AND dtg DURING 2010-08-08T00:00:00.000Z/2010-08-08T23:59:59.000Z"
   )
 
+  val spatioTemporalPredicatesWithNS = Seq(
+    "INTERSECTS(ns:geom, POLYGON ((45 23, 48 23, 48 27, 45 27, 45 23))) AND dtg DURING 2010-08-08T00:00:00.000Z/2010-08-08T23:59:59.000Z",
+    "INTERSECTS(geom, POLYGON ((45 23, 48 23, 48 27, 45 27, 45 23))) AND ns:dtg DURING 2010-08-08T00:00:00.000Z/2010-08-08T23:59:59.000Z",
+    "INTERSECTS(ns:geom, POLYGON ((45 23, 48 23, 48 27, 45 27, 45 23))) AND ns:dtg DURING 2010-08-08T00:00:00.000Z/2010-08-08T23:59:59.000Z"
+  )
+
   val dwithinPolys = for(i <- 1 until 50000 by 10000) yield {s"DWITHIN(geom, POLYGON ((45 23, 48 23, 48 27, 45 27, 45 23)), $i.0, meters)"}
   val dwithinLinestrings = for(i <- 1 until 50000 by 10000) yield {s"DWITHIN(geom, LINESTRING (45 23, 48 27), $i.0, meters)"}
 
