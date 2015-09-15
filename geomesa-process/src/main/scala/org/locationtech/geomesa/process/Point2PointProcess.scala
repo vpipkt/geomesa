@@ -96,8 +96,8 @@ class Point2PointProcess extends VectorProcess {
           }
         }
 
-        if (filterSingularPoints) results.filter(_._1 > 0.0).map(_._2)
-        else results.map(_._2)
+        if (filterSingularPoints) results.filter { case (length, _) => length > 0.0 }.map { case (_, sf) => sf }
+        else results.map { case (_, sf) => sf }
       }
 
     DataUtilities.collection(lineFeatures.toArray)
