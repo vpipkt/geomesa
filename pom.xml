@@ -70,7 +70,6 @@
 
         <!-- testing properties -->
         <maven.test.jvmargs>-Duser.timezone=UTC -Xms1g -Xmx8g -XX:MaxPermSize=1024m -XX:-UseGCOverheadLimit</maven.test.jvmargs>
-        <fork.count>1</fork.count>
         <avro.version>1.7.5</avro.version>
         <accumuloSuffix>accumulo1.5</accumuloSuffix>
     </properties>
@@ -1082,7 +1081,6 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>2.18.1</version>
                 <configuration>
-                    <forkCount>${fork.count}</forkCount>
                     <reuseForks>true</reuseForks>
                     <includes>
                         <include>**/*Test.java</include>
