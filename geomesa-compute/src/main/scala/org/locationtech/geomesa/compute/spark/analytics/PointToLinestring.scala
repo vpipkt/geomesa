@@ -2,12 +2,14 @@ package org.locationtech.geomesa.compute.spark.analytics
 
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Calendar
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.spark.{SparkConf, SparkContext}
 import org.geotools.data.{DataStoreFinder, Query}
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.feature.simple.SimpleFeatureTypeBuilder
+
 //import org.geotools.api
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.geotools.filter.SortByImpl
@@ -45,26 +47,29 @@ object PointToLinestring {
     val builder = new SimpleFeatureTypeBuilder()
     builder.setName(pointTypeName + "-tracks")
     builder.add(trackId, classOf[String])
-   // builder.add("dtg", classOf[Date])
+    // builder.add("dtg", classOf[Date])
     //builder.add("endDtg", classOf[Date])
     builder.add("geom", classOf[LineString], 4326)
     builder.buildFeatureType()
   }
 
+  // Get a handle to the data stores
+  val ds = DataStoreFinder.getDataStore(inParams).asInstanceOf[AccumuloDataStore]
+  val outds = DataStoreFinder.getDataStore(outParams).asInstanceOf[AccumuloDataStore]
+  outds.createSchema(trackSft)
+
+  // Construct a query of all features (INCLUDE)
+  val q = new Query(pointTypeName)
+
   def attrToString(attr: Any): String = attr match {
     case null => ""
     case s: String => s
-    case d: Date   =>  ISODateTimeFormat.basicDateTime().withZoneUTC().print(d.getTime)
+    case d: Date => ISODateTimeFormat.basicDateTime().withZoneUTC().print(d.getTime)
     case g: Geometry => WKTUtils.write(g)
     case a => a.toString
   }
 
   def main(args: Array[String]) {
-    // Get a handle to the data store
-    val ds = DataStoreFinder.getDataStore(inParams).asInstanceOf[AccumuloDataStore]
-
-    // Construct a query of all features (INCLUDE)
-    val q = new Query(pointTypeName)
 
     /*q.setSortBy(Array(
       new SortByImpl(date, org.opengis.filter.sort.SortOrder.ASCENDING))
@@ -80,49 +85,55 @@ object PointToLinestring {
     //   the first element of the tuple is the track identifier
     val tidAndFeature = pointRDD.mapPartitions { iter =>
       val ff = CommonFactoryFinder.getFilterFactory2
-      val exp = ff.property(trackId)
-      iter.map { f => (exp.evaluate(f).asInstanceOf[String], f) }
+      val idExp = ff.property(trackId)
+      iter.map { f => (idExp.evaluate(f).asInstanceOf[String], f) }
     }
 
-    // group by feature id:
+    // group by track identifier (requires shuffle):
     val g = tidAndFeature.groupByKey()
-/*    val sorted = g.mapPartitions { kv =>
-      kv.map{ i => (i._1, i._2.map{
-        f => (f.getAttribute(date), f)
-      } )
-      }
-    }*/
+    // sort within track identifier groups, by date order
+    /*    val sorted = g.mapPartitions { kv =>
+          kv.map{ i => (i._1, i._2.map{
+            f => (f.getAttribute(date), f)
+          } )
+          }
+        }*/
+
+     
 
     val gf = new GeometryFactory
-
+    // to RDD[(String, LineString, Int)]   .... ( id, linestring geom, and count-of-points )
     val idLinestrings = g.mapPartitions { iter =>
       iter.map { pair =>
         var ls = gf.createLineString(Array[Coordinate]())
-        val coords = pair._2.map(f => f.getDefaultGeometry.asInstanceOf[Point].getCoordinate).toArray
-        if (coords.length >1) {
+        val coords = pair._2.map(f => f.getDefaultGeometry.asInstanceOf[Point].getCoordinate).toArray.distinct
+        if (coords.length > 1) {
           ls = gf.createLineString(coords)
         }
-          (pair._1, ls)
+        (pair._1, ls, coords.length)
       }
     }
 
-    val sfts = idLinestrings.mapPartitions{ iter =>
-      iter.map { pair => {
-        new ScalaSimpleFeature(pair._1.toString, trackSft, Array[AnyRef](pair._1, pair._2)).asInstanceOf[SimpleFeature]
+    val idLinestrings2 = idLinestrings.filter { t =>
+      t._3 > 1
+    }
+    val sfts = idLinestrings2.mapPartitions { iter =>
+      iter.map { tuple => {
+        new ScalaSimpleFeature(tuple._1.toString, trackSft, Array[AnyRef](tuple._1, tuple._2)).asInstanceOf[SimpleFeature]
       }
       }
     }
 
-    // seems like a good idea, but has some problem  sfts.cache()
+    // seems good to do, but had some problems? (maybe related to y, x issue)
+    // sfts.cache()
 
-    println("\n\nINFO: Created  "  + sfts.count + " linestrings from " + pointRDD.count + " points.\n\n")
+    println("\n\nINFO: Created  " + sfts.count + " linestrings from " + pointRDD.count + " points.\n\n")
 
-    sfts.mapPartitions{ ss =>
-      ss.map(sf => sf.getID + sf.getAttributes().map(attrToString))
-    }.saveAsTextFile("hdfs://localhost:9000/user/root/" + trackSft.getTypeName )
+    sfts.mapPartitions { ss =>
+      ss.map(sf => sf.getAttributes().map(attrToString).mkString("\t"))
+    }.saveAsTextFile("hdfs://localhost:9000/user/root/" + trackSft.getTypeName +
+          ISODateTimeFormat.basicDateTime().withZoneUTC().print(Calendar.getInstance.getTime.getTime))
 
-    val     outds = DataStoreFinder.getDataStore(outParams).asInstanceOf[AccumuloDataStore]
-    outds.createSchema(trackSft)
     GeoMesaSpark.save(sfts, outParams, trackSft.getTypeName)
   }
 }
