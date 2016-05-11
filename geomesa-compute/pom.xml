@@ -6,7 +6,7 @@
 * accompanies this distribution and is available at
 * http://www.opensource.org/licenses/apache2.0.php.
 *********************************************************************-->
-        
+
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>geomesa</artifactId>
@@ -20,6 +20,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <geowave-version>0.9.1-SNAPSHOT</geowave-version>
     </properties>
 
     <dependencyManagement>
@@ -34,6 +35,44 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>mil.nga.giat</groupId>
+            <artifactId>geowave-analytic-api</artifactId>
+            <version>${geowave-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>mil.nga.giat</groupId>
+            <artifactId>geowave-analytic-spark</artifactId>
+            <version>${geowave-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>mil.nga.giat</groupId>
+            <artifactId>geowave-datastore-accumulo</artifactId>
+            <version>${geowave-version}</version>
+        </dependency>
+        <dependency>
+            <groupId>mil.nga.giat</groupId>
+            <artifactId>geowave-adapter-vector</artifactId>
+            <version>${geowave-version}</version>
+            <!-- wfs data store impl here has bugs - at least with geoserver 2.5.x -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.geotools</groupId>
+                    <artifactId>gt-wfs-ng</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.geoserver</groupId>
+                    <artifactId>gs-wms</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- needed by geowave but marked provided by thrift -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.1</version>
+        </dependency>
+
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
             <artifactId>geomesa-accumulo-datastore</artifactId>
@@ -103,28 +142,28 @@
             <artifactId>gt-api</artifactId>
             <version>${gt.version}</version>
         </dependency>
-         <dependency>
-                <groupId>org.geotools</groupId>
-                <artifactId>gt-referencing</artifactId>
-                <version>${gt.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <!-- excluded due to license issues -->
-                        <groupId>javax.media</groupId>
-                        <artifactId>jai_core</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <!-- excluded due to license issues -->
-                        <groupId>jgridshift</groupId>
-                        <artifactId>jgridshift</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <!-- excluded due to license issues -->
-                        <groupId>java3d</groupId>
-                        <artifactId>vecmath</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-referencing</artifactId>
+            <version>${gt.version}</version>
+            <exclusions>
+                <exclusion>
+                    <!-- excluded due to license issues -->
+                    <groupId>javax.media</groupId>
+                    <artifactId>jai_core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- excluded due to license issues -->
+                    <groupId>jgridshift</groupId>
+                    <artifactId>jgridshift</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- excluded due to license issues -->
+                    <groupId>java3d</groupId>
+                    <artifactId>vecmath</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-epsg-hsql</artifactId>
@@ -241,7 +280,7 @@
                                 </relocation>
                             </relocations>
                             <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                         </configuration>
                     </execution>
@@ -249,5 +288,18 @@
             </plugin>
         </plugins>
     </build>
+    <repositories>
+        <repository>
+            <id>geowave-maven-snapshot</id>
+            <name>GeoWave AWS SNAPSHOT Repository</name>
+            <url>http://geowave-maven.s3-website-us-east-1.amazonaws.com/snapshot</url>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
 </project>

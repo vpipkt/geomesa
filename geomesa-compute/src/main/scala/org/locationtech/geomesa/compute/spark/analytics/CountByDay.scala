@@ -23,18 +23,18 @@ import scala.collection.JavaConversions._
 object CountByDay {
 
   val params = Map(
-    "instanceId" -> "mycloud",
-    "zookeepers" -> "zoo1,zoo2,zoo3",
-    "user"       -> "user",
-    "password"   -> "password",
-    "tableName"  -> "gdelt")
+    "instanceId" -> "local",
+    "zookeepers" -> "localhost:2181",
+    "user"       -> "root",
+    "password"   -> "secret",
+    "tableName"  -> "geomesa121.gdelt")
 
-  val typeName = "event"
+  val typeName = "gdelt"
   val geom     = "geom"
-  val date     = "SQLDATE"
+  val date     = "dtg"
 
   val bbox   = "-80, 35, -79, 36"
-  val during = "2014-01-01T00:00:00.000Z/2014-01-31T12:00:00.000Z"
+  val during = "2016-04-11T00:00:00.000Z/2016-04-14T12:00:00.000Z"
 
   val filter = s"bbox($geom, $bbox) AND $date during $during"
 
