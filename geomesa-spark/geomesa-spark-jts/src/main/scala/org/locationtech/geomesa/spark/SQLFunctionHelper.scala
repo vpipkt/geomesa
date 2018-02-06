@@ -8,13 +8,16 @@
 
 package org.locationtech.geomesa.spark
 
-import org.apache.spark.sql.Column
+import com.vividsolutions.jts.geom.{Geometry, Point, Polygon}
+import org.apache.spark.sql.{Column, Encoder, TypedColumn}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
-import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference}
+import org.apache.spark.sql.catalyst.expressions.{Alias, AttributeReference, Literal}
 import org.apache.spark.sql.functions.udf
+import org.apache.spark.sql.jts.{PointUDT, PolygonUDT}
+
 import scala.reflect.runtime.universe._
 
-object SQLFunctionHelper {
+private[geomesa] object SQLFunctionHelper {
   def nullableUDF[A1, RT](f: A1 => RT): A1 => RT = {
     in1 => in1 match {
       case null => null.asInstanceOf[RT]
@@ -49,44 +52,45 @@ object SQLFunctionHelper {
     }
   }
 
-  def udfToColumn[A1: TypeTag, RT: TypeTag](f: A1 => RT, name: String, col: Column): Column = {
-    withAlias(name, col)(udf(f).apply(col))
-  }
-  def udfToColumn[A1: TypeTag, A2: TypeTag, RT: TypeTag](f: (A1, A2) => RT,
-                                                         name: String,
-                                                         colA: Column, colB: Column): Column = {
-    withAlias(name, colA, colB)(udf(f).apply(colA, colB))
-  }
-  def udfToColumn[A1: TypeTag, A2: TypeTag, A3: TypeTag, RT: TypeTag](f: (A1, A2, A3) => RT,
-                                                                      name: String,
-                                                                      colA: Column, colB: Column, colC: Column): Column = {
-    withAlias(name, colA, colB, colC)(udf(f).apply(colA, colB, colC))
-  }
-  def udfToColumn[A1: TypeTag, A2: TypeTag, A3: TypeTag, A4: TypeTag, RT: TypeTag](f: (A1, A2, A3, A4) => RT,
-                                                                                   name: String,
-                                                                                   colA: Column, colB: Column,
-                                                                                   colC: Column, colD: Column): Column = {
-    withAlias(name, colA, colB, colC)(udf(f).apply(colA, colB, colC, colD))
+  def udfToColumn[A1: TypeTag, RT: TypeTag: Encoder, N >: (A1 => RT)](
+    f: A1 => RT, namer: N => String, col: Column): TypedColumn[Any, RT] = {
+    withAlias(namer(f), col)(udf(f).apply(col)).as[RT]
   }
 
+  def udfToColumn[A1: TypeTag, A2: TypeTag, RT: TypeTag: Encoder, N >: (A1, A2) => RT](
+    f: (A1, A2) => RT, namer: N => String, colA: Column, colB: Column): TypedColumn[Any, RT] = {
+    withAlias(namer(f), colA, colB)(udf(f).apply(colA, colB)).as[RT]
+  }
 
-  def udfToColumnLiterals[A1: TypeTag, RT: TypeTag](f: A1 => RT, name: String, a1: A1): Column = {
-    udf(() => f(a1)).apply().as(name)
+  def udfToColumn[A1: TypeTag, A2: TypeTag, A3: TypeTag, RT: TypeTag: Encoder, N >: (A1, A2, A3) => RT](
+    f: (A1, A2, A3) => RT, namer: N => String, colA: Column, colB: Column, colC: Column): TypedColumn[Any, RT] = {
+    withAlias(namer(f), colA, colB, colC)(udf(f).apply(colA, colB, colC)).as[RT]
   }
-  def udfToColumnLiterals[A1: TypeTag, A2: TypeTag, RT: TypeTag](f: (A1, A2) => RT,
-                                                                 name: String,
-                                                                 a1: A1, a2: A2): Column = {
-    udf(() => f(a1, a2)).apply().as(name)
+
+  def udfToColumn[A1: TypeTag, A2: TypeTag, A3: TypeTag, A4: TypeTag, RT: TypeTag: Encoder, N >: (A1, A2, A3, A4) => RT](
+    f: (A1, A2, A3, A4) => RT, namer: N => String,
+    colA: Column, colB: Column, colC: Column, colD: Column): TypedColumn[Any, RT] = {
+    withAlias(namer(f), colA, colB, colC)(udf(f).apply(colA, colB, colC, colD)).as[RT]
   }
-  def udfToColumnLiterals[A1: TypeTag, A2: TypeTag, A3: TypeTag, RT: TypeTag](f: (A1, A2, A3) => RT,
-                                                                              name: String,
-                                                                              a1: A1, a2: A2, a3: A3): Column = {
-    udf(() => f(a1, a2, a3)).apply().as(name)
+
+  def udfToColumnLiterals[A1: TypeTag, RT: TypeTag: Encoder, N >: A1 => RT](
+    f: A1 => RT, namer: N => String, a1: A1): TypedColumn[Any, RT] = {
+    udf(() => f(a1)).apply().as(namer(f)).as[RT]
   }
-  def udfToColumnLiterals[A1: TypeTag, A2: TypeTag, A3: TypeTag, A4: TypeTag, RT: TypeTag](f: (A1, A2, A3, A4) => RT,
-                                                                                           name: String,
-                                                                                           a1: A1, a2: A2, a3: A3, a4: A4): Column = {
-    udf(() => f(a1, a2, a3, a4)).apply().as(name)
+
+  def udfToColumnLiterals[A1: TypeTag, A2: TypeTag, RT: TypeTag: Encoder, N >: (A1, A2) => RT](
+    f: (A1, A2) => RT, namer: N => String, a1: A1, a2: A2): TypedColumn[Any, RT] = {
+    udf(() => f(a1, a2)).apply().as(namer(f)).as[RT]
+  }
+
+  def udfToColumnLiterals[A1: TypeTag, A2: TypeTag, A3: TypeTag, RT: TypeTag: Encoder, N >: (A1, A2, A3) => RT](
+    f: (A1, A2, A3) => RT, namer: N => String, a1: A1, a2: A2, a3: A3): TypedColumn[Any, RT] = {
+    udf(() => f(a1, a2, a3)).apply().as(namer(f)).as[RT]
+  }
+
+  def udfToColumnLiterals[A1: TypeTag, A2: TypeTag, A3: TypeTag, A4: TypeTag, RT: TypeTag: Encoder, N >: (A1, A2, A3, A4) => RT](
+    f: (A1, A2, A3, A4) => RT, namer: N => String, a1: A1, a2: A2, a3: A3, a4: A4): TypedColumn[Any, RT] = {
+    udf(() => f(a1, a2, a3, a4)).apply().as(namer(f)).as[RT]
   }
 
   def columnName(column: Column): String = {

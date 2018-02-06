@@ -11,7 +11,7 @@ package org.apache.spark.sql.jts
 import com.vividsolutions.jts.geom._
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
+import org.apache.spark.sql.catalyst.expressions.{GenericInternalRow, Literal}
 import org.apache.spark.sql.types._
 import org.geotools.factory.CommonFactoryFinder
 import org.geotools.geometry.jts.JTSFactoryFinder
@@ -66,6 +66,7 @@ object JTSTypes {
     SQLGeometricOutputFunctions.registerFunctions(sqlContext)
     SQLRules.registerOptimizations(sqlContext)
   }
+
 }
 
 abstract class AbstractGeometryUDT[T >: Null <: Geometry](override val simpleString: String)(implicit cm: ClassTag[T])

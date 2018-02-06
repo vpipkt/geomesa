@@ -8,25 +8,23 @@
 
 package org.locationtech.geomesa.spark
 
-import java.util.{Map => JMap}
-
 import com.vividsolutions.jts.geom.Geometry
-import org.apache.spark.sql.{DataFrame, SQLContext, SparkSession}
+import org.apache.spark.sql.{SQLContext, SparkSession}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.jts.JTSTypes
-import org.geotools.data.{DataStore, DataStoreFinder}
 import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
-
-import scala.collection.JavaConversions._
+import SQLSpatialAccessorFunctions._
+import SQLGeometricConstructorFunctions._
 
 @RunWith(classOf[JUnitRunner])
-class SparkSQLGeometryAccessorsTest extends Specification {
+class SparkSQLGeometryAccessorsTest extends Specification with BlankDataFrame {
 
   "sql geometry accessors" should {
     sequential
 
-    var spark: SparkSession = null
+    implicit var spark: SparkSession = null
     var sc: SQLContext = null
 
     // before
@@ -42,17 +40,23 @@ class SparkSQLGeometryAccessorsTest extends Specification {
 
     "st_boundary" >> {
       sc.sql("select st_boundary(null)").collect.head(0) must beNull
+      dfBlank.select(st_boundary(lit(null))).first must beNull
 
+      val line = "LINESTRING(1 1, 0 0, -1 1)"
       val result = sc.sql(
-        """
-          |select st_boundary(st_geomFromWKT('LINESTRING(1 1, 0 0, -1 1)'))
+        s"""
+          |select st_boundary(st_geomFromWKT('$line'))
         """.stripMargin
       )
-      result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("MULTIPOINT(1 1, -1 1)")
+      val expected = WKTUtils.read("MULTIPOINT(1 1, -1 1)")
+      result.collect().head.getAs[Geometry](0) mustEqual expected
+      dfBlank.select(st_boundary(st_geomFromWKT(line))).first mustEqual expected
+
     }
 
     "st_coordDim" >> {
       sc.sql("select st_coordDim(null)").collect.head(0) must beNull
+      dfBlank.select(st_coordDim(lit(null))).first mustEqual 0
 
       val result = sc.sql(
         """
@@ -60,11 +64,14 @@ class SparkSQLGeometryAccessorsTest extends Specification {
         """.stripMargin
       )
       result.collect().head.getAs[Int](0) mustEqual 2
+
+      dfBlank.select(st_coordDim(st_geomFromWKT("POINT(0 0)"))).first mustEqual 2
     }
 
     "st_dimension" >> {
       "null" >> {
         sc.sql("select st_dimension(null)").collect.head(0) must beNull
+        dfBlank.select(st_dimension(lit(null))).first mustEqual 0
       }
 
       "point" >> {
@@ -74,39 +81,48 @@ class SparkSQLGeometryAccessorsTest extends Specification {
           """.stripMargin
         )
         result.collect().head.getAs[Int](0) mustEqual 0
+        dfBlank.select(st_dimension(st_geomFromWKT("POINT(0 0)"))).first mustEqual 0
       }
 
       "linestring" >> {
+        val line = "LINESTRING(1 1, 0 0, -1 1)"
         val result = sc.sql(
-          """
-            |select st_dimension(st_geomFromWKT('LINESTRING(1 1, 0 0, -1 1)'))
+          s"""
+            |select st_dimension(st_geomFromWKT('$line'))
           """.stripMargin
         )
         result.collect().head.getAs[Int](0) mustEqual 1
+
+        dfBlank.select(st_dimension(st_geomFromWKT(line))).first mustEqual 1
       }
 
       "polygon" >> {
+        val poly = "POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))"
         val result = sc.sql(
-          """
-            |select st_dimension(st_geomFromWKT('POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))'))
+          s"""
+            |select st_dimension(st_geomFromWKT('$poly'))
           """.stripMargin
         )
         result.collect().head.getAs[Int](0) mustEqual 2
+        dfBlank.select(st_dimension(st_geomFromWKT(poly))).first mustEqual 2
       }
 
       "geometrycollection" >> {
+        val geom = "GEOMETRYCOLLECTION(LINESTRING(1 1,0 0),POINT(0 0))"
         val result = sc.sql(
-          """
-            |select st_dimension(st_geomFromWKT('GEOMETRYCOLLECTION(LINESTRING(1 1,0 0),POINT(0 0))'))
+          s"""
+             |select st_dimension(st_geomFromWKT('$geom'))
           """.stripMargin
         )
         result.collect().head.getAs[Int](0) mustEqual 1
+        dfBlank.select(st_dimension(st_geomFromWKT(geom))).first mustEqual 1
       }
     }
 
     "st_envelope" >> {
       "null" >> {
         sc.sql("select st_envelope(null)").collect.head(0) must beNull
+        dfBlank.select(st_envelope(lit(null))).first must beNull
       }
 
       "point" >> {
@@ -115,7 +131,9 @@ class SparkSQLGeometryAccessorsTest extends Specification {
             |select st_envelope(st_geomFromWKT('POINT(0 0)'))
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("POINT(0 0)")
+        val expected = WKTUtils.read("POINT(0 0)")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_envelope(st_geomFromWKT("POINT(0 0)"))).first mustEqual expected
       }
 
       "linestring" >> {
@@ -124,22 +142,28 @@ class SparkSQLGeometryAccessorsTest extends Specification {
             |select st_envelope(st_geomFromWKT('LINESTRING(0 0, 1 3)'))
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("POLYGON((0 0,0 3,1 3,1 0,0 0))")
+        val expected = WKTUtils.read("POLYGON((0 0,0 3,1 3,1 0,0 0))")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_envelope(st_geomFromWKT("LINESTRING(0 0, 1 3)"))).first mustEqual expected
       }
 
       "polygon" >> {
+        val poly = "POLYGON((0 0, 0 1, 1.0000001 1, 1.0000001 0, 0 0))"
         val result = sc.sql(
-          """
-            |select st_envelope(st_geomFromWKT('POLYGON((0 0, 0 1, 1.0000001 1, 1.0000001 0, 0 0))'))
+          s"""
+            |select st_envelope(st_geomFromWKT('$poly'))
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("POLYGON((0 0, 0 1, 1.0000001 1, 1.0000001 0, 0 0))")
+        val expected = WKTUtils.read("POLYGON((0 0, 0 1, 1.0000001 1, 1.0000001 0, 0 0))")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_envelope(st_geomFromWKT(poly))).first mustEqual expected
       }
     }
 
     "st_exteriorRing" >> {
       "null" >> {
         sc.sql("select st_exteriorRing(null)").collect.head(0) must beNull
+        dfBlank.select(st_exteriorRing(lit(null))).first must beNull
       }
 
       "point" >> {
@@ -149,31 +173,38 @@ class SparkSQLGeometryAccessorsTest extends Specification {
           """.stripMargin
         )
         result.collect().head.getAs[Geometry](0) must beNull
+        dfBlank.select(st_exteriorRing(st_geomFromWKT("POINT(0 0)"))).first must beNull
       }
 
       "polygon without an interior ring" >> {
+        val poly = "POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))"
         val result = sc.sql(
-          """
-            |select st_exteriorRing(st_geomFromWKT('POLYGON((30 10, 40 40, 20 40, 10 20, 30 10))'))
+          s"""
+             |select st_exteriorRing(st_geomFromWKT('$poly'))
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("LINESTRING(30 10, 40 40, 20 40, 10 20, 30 10)")
+        val expected = WKTUtils.read("LINESTRING(30 10, 40 40, 20 40, 10 20, 30 10)")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_exteriorRing(st_geomFromWKT(poly))).first mustEqual expected
       }
 
       "polygon with an interior ring" >> {
+        val poly = "POLYGON ((35 10, 45 45, 15 40, 10 20, 35 10), (20 30, 35 35, 30 20, 20 30))"
         val result = sc.sql(
-          """
-            |select st_exteriorRing(st_geomFromWKT('POLYGON ((35 10, 45 45, 15 40, 10 20, 35 10),
-            |(20 30, 35 35, 30 20, 20 30))'))
+          s"""
+            |select st_exteriorRing(st_geomFromWKT('$poly'))
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("LINESTRING(35 10, 45 45, 15 40, 10 20, 35 10)")
+        val expected = WKTUtils.read("LINESTRING(35 10, 45 45, 15 40, 10 20, 35 10)")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_exteriorRing(st_geomFromWKT(poly))).first mustEqual expected
       }
     }
 
     "st_geometryN" >> {
       "null" >> {
         sc.sql("select st_geometryN(null, null)").collect.head(0) must beNull
+        dfBlank.select(st_geometryN(lit(null), lit(null))).first must beNull
       }
 
       "point" >> {
@@ -182,25 +213,33 @@ class SparkSQLGeometryAccessorsTest extends Specification {
             |select st_geometryN(st_geomFromWKT('POINT(0 0)'), 1)
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("POINT(0 0)")
+        val expected = WKTUtils.read("POINT(0 0)")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_geometryN(st_geomFromWKT("POINT(0 0)"), lit(1))).first mustEqual expected
       }
 
       "multilinestring" >> {
+        val geom = "MULTILINESTRING ((10 10, 20 20, 10 40),(40 40, 30 30, 40 20, 30 10))"
         val result = sc.sql(
-          """
-            |select st_geometryN(st_geomFromWKT('MULTILINESTRING ((10 10, 20 20, 10 40),(40 40, 30 30, 40 20, 30 10))'), 1)
+          s"""
+             |select st_geometryN(st_geomFromWKT('$geom'), 1)
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("LINESTRING(10 10, 20 20, 10 40)")
+        val expected = WKTUtils.read("LINESTRING(10 10, 20 20, 10 40)")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_geometryN(st_geomFromWKT(geom), lit(1))).first mustEqual expected
       }
 
       "geometrycollection" >> {
+        val geom = "GEOMETRYCOLLECTION(LINESTRING(1 1,0 0),POINT(0 0))"
         val result = sc.sql(
-          """
-            |select st_geometryN(st_geomFromWKT('GEOMETRYCOLLECTION(LINESTRING(1 1,0 0),POINT(0 0))'), 1)
+          s"""
+            |select st_geometryN(st_geomFromWKT('$geom'), 1)
           """.stripMargin
         )
-        result.collect().head.getAs[Geometry](0) mustEqual WKTUtils.read("LINESTRING(1 1,0 0)")
+        val expected = WKTUtils.read("LINESTRING(1 1,0 0)")
+        result.collect().head.getAs[Geometry](0) mustEqual expected
+        dfBlank.select(st_geometryN(st_geomFromWKT(geom), lit(1))).first mustEqual expected
       }
     }
 
@@ -575,6 +614,7 @@ class SparkSQLGeometryAccessorsTest extends Specification {
     "st_x" >> {
       "null" >> {
         sc.sql("select st_x(null)").collect.head(0) must beNull
+        dfBlank.select(st_x(lit(null))).first must beNull
       }
 
       "point" >> {
@@ -584,6 +624,8 @@ class SparkSQLGeometryAccessorsTest extends Specification {
           """.stripMargin
         )
         result.collect().head.getAs[java.lang.Float](0) mustEqual 0f
+        dfBlank.select(st_x(st_geomFromWKT("POINT(0 1)"))).first mustEqual 0f
+
       }
 
       "non-point" >> {
@@ -593,12 +635,14 @@ class SparkSQLGeometryAccessorsTest extends Specification {
           """.stripMargin
         )
         result.collect().head.getAs[java.lang.Float](0) must beNull
+        dfBlank.select(st_x(st_geomFromWKT("LINESTRING(0 0, 0 1, 1 1, 1 0, 0 0)"))).first must beNull
       }
     }
 
     "st_y" >> {
       "null" >> {
         sc.sql("select st_y(null)").collect.head(0) must beNull
+        dfBlank.select(st_y(lit(null))).first must beNull
       }
 
       "point" >> {
@@ -608,6 +652,8 @@ class SparkSQLGeometryAccessorsTest extends Specification {
           """.stripMargin
         )
         result.collect().head.getAs[java.lang.Float](0) mustEqual 1f
+        dfBlank.select(st_y(st_geomFromWKT("POINT(0 1)"))).first mustEqual 1f
+
       }
 
       "non-point" >> {
@@ -617,6 +663,8 @@ class SparkSQLGeometryAccessorsTest extends Specification {
           """.stripMargin
         )
         result.collect().head.getAs[java.lang.Float](0) must beNull
+        dfBlank.select(st_y(st_geomFromWKT("LINESTRING(0 0, 0 1, 1 1, 1 0, 0 0)"))).first must beNull
+
       }
     }
 
