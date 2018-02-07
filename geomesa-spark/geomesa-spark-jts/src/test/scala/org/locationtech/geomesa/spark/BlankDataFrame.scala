@@ -1,3 +1,4 @@
+
 /***********************************************************************
  * Copyright (c) 2013-2018 Commonwealth Computer Research, Inc.
  * All rights reserved. This program and the accompanying materials
@@ -5,6 +6,7 @@
  * which accompanies this distribution and is available at
  * http://www.opensource.org/licenses/apache2.0.php.
  ***********************************************************************/
+
 package org.locationtech.geomesa.spark
 
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
